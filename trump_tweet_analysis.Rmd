@@ -85,6 +85,8 @@ library(tidyverse)
 library(tidytext)
 library(ggthemes)
 library(DT)
+library(devtools)
+library(exploratory) # installed package via: devtools::install_github("exploratory-io/exploratory_func")
 # Set working directory
 setwd("/Users/Thomas/work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/Tweet_analysis")
 # Get downloaded dataset
@@ -257,7 +259,7 @@ Het is allereerst **goed om te weten dat niet alle woorden een 'sentimentele waa
 
 1. [x] Laat verdeling negatieve en positieve woorden zien met `bing` lexicon
 2. [x] Hoe ziet de negatieve/positieve verdeling er over het hele jaar uit? `AFINN` lexicon. 
-3. [ ] Wat is het sentiment (negatief/positief) van de woorden die het meest worden geretweet/gefavorite?
+3. [x] Wat is het sentiment (negatief/positief) van de woorden die het meest worden geretweet?
 3. [ ] Dubbel check met `sentimentr` package.
 
 ```{r lexicon-analysis, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
@@ -290,7 +292,6 @@ most_used_words %>%
        y = "Aantal woorden")
 ```
 
-
 Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de AFFIN lexicon te gebruiken. De nrc vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. Door de -5 (heel negatief) tot 5 (heel positief) schaal worden woorden beter gewogen.
 
 Woorden gesorteerd op retweets, maar ga je gang en sorteer op favorites of browse door pagina's.
@@ -299,11 +300,36 @@ Woorden gesorteerd op retweets, maar ga je gang en sorteer op favorites of brows
 tweets_fy_words <- tweets_first_year %>%
   unnest_tokens(words, text) %>%
   rename(word = words)
-# Add afinn lecxicon and scores with, words most retweets
-most_rt_words <- inner_join(tweets_fy_words, get_sentiments("afinn")) %>%
-  arrange(desc(retweet_count)) %>%
-  select(c(word, score, retweet_count, favorite_count, ID))
+
+# Total retweets each word
+totals <- tweets_fy_words %>% 
+  group_by(word) %>% 
+  summarise(total_rts = sum(retweet_count))
+# Words with most retweets (median) if more than 5 times used with afinn score
+word_most_rts <- tweets_fy_words %>%
+  group_by(ID, word) %>% 
+  summarise(rts = first(retweet_count)) %>% 
+  group_by(word) %>% 
+  summarise(median_rts = median(rts), uses = n()) %>%
+  left_join(totals) %>%
+  ungroup() %>%
+  filter(uses > 5) %>%
+  arrange(desc(median_rts)) %>%
+  inner_join(get_sentiments("afinn"), by = "word")
+
 # Html widget interactive table in rmarkdown report
-datatable(head(most_rt_words, n = nrow(most_rt_words)), options = list(pageLength = 10))
+datatable(head(word_most_rts, n = nrow(word_most_rts)), options = list(pageLength = 10))
 ```
+
+### Sentimentr package
+Scoort sentiment op hele zinnen.
+
+```{r}
+tweets_first_year %>% 
+  mutate(get_sentiment(text))
+  
+```
+
+
+
 
