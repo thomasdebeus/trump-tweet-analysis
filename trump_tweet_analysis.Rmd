@@ -1,0 +1,313 @@
+---
+title: "Trump's Tweetanalyse"
+author: "Thomas de Beus"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 5
+    theme: journal
+    code_folding: hide
+    number_sections: true
+---
+<style>
+    body .main-container {
+        max-width: 600px;
+    }
+</style>
+
+![](http://i.cdn.cnn.com/cnn/interactive/2017/politics/trump-tweets/media/trump-tweets-hdr-02.jpg)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Waarom een tweetanalyse?
+
+Een eerste jaar Donald J. Trump in het witte huis. Misschien wel mede mogelijk gemaakt door zijn karakteristieke uitlatingen op Twitter. In de aanloop van de verkiezingen zijn de tweets van de huidige president van de V.S. een krachtig middel gebleken. Hij bereikt zijn miljoenen kiezers zonder de traditionele media nodig te hebben. Trump zelf verschijnt dan ook relatief weinig voor de camera, in kranten of andere news outlets. 
+
+Om beter vat te krijgen op hoe Trump zijn favoriete medium inzet nemen we zijn tweets onder de loep. **Doormiddel van een tekstanalyse hopen we een aantal vragen te beantwoorden**. 
+
+Simpele vragen zoals:
+
+* Hoeveel tweets stuurt Trump gemiddeld per dag?
+* Wanneer op de dag tweet hij met name? s'Avonds, s'ochtends of s'middags?
+* Welke tweets worden het meest geretweet en geliked?
+* Welke woorden gebruikt Trump het meest?
+
+Maar ook de moeilijke vragen zoals:
+
+* Welke Tweets zijn daadwerkelijk van Trump afkomstig?
+* Zijn zijn tweets positief, neutraal of negatief van aard?
+* Welke emoties kleuren zijn taalgebruik?
+* Wanneer lopen de spanningen hoog op?
+
+Taal is voor een computer moeilijk te vatten. Taal heeft duizenden jaren ontwikkeling meegemaakt en zodoende bereikt het een hoog abstractie niveau. Toch gaan we dit proberen. 
+
+*Deze pagina wordt geupdate als er weer nieuwe inzichten in de analyse naar voren komen*.
+
+# Data verkrijgen
+
+De geïmporteerde dataset is van [Trump Twitter Archive](http://www.trumptwitterarchive.com/archive). Dit is een betere bron dan de Twitter API welke niet altijd alle tweets geeft. Bovendien slaat de Trump Twitter Archive ook verwijderde tweets op. 
+
+De dataset bestaat uit 5.411 tweets vanaf 16-06-2015, de dag dat Donald Trump zich officieel beschiktbaar stelde als kandidaat voor de Republiekeinen.  
+
+De dataset is **gedownload op 04-12-2017**, maar kan terzijnertijd met nieuwe data opnieuw gedownload worden en met één druk op de knop door de 'R script' op deze pagina worden gehaald. De dataset bevat de volgende *zeven* variabelen:
+
+* `text`: tekst van de tweets.
+* `created_at`: datum en tijd van tweet in 'GMT'
+* `source`: op welk apparaat of met welke software de tweet is gepost
+* `retweet_count`: aantal 'retweets'
+* `favourite_count`: aantal 'vind-ik-leuks'
+* `is_retweet`: of de tweet een retweet is of niet
+* `id_str`: uniek karakter van tweet 
+
+## Legenda
+Taken die nodig zijn om de hoofdvragen te kunnen beantwoorden zijn weer gegeven als: **1. [x]**. Als je rechts op de grijze code knop drukt komt deze tevoorschijn. De code is ook gedocumenteerd, dat wil zeggen dat alle code met comments uitgelegd word wat het doet.
+
+1. [x] Vind alternatief voor Twitter API want limiet van 3400 tweets en er zit een bug in de twitteR package waardoor incomplete data wordt gegenereerd.
+2. [x] Tweet data downloaden vanaf 2015-06-16 (Trump Twitter Archive). De dag dat Trump zich officieel kandidaat stelde voor de republikeinen.
+
+# Data voorbereiden
+
+1. [x] Variabelen in juiste type converteren
+2. [x] Filter (subset) data op tweets vanaf Android en iPhone, omdat Trump als persoon hier vandaan tweet
+3. [x] Filter data op alleen originele tweets, dus geen Retweets
+4. [x] Filter data op de nodige variabelen (kolommen)
+5. [x] Filter op daadwerkelijk Trump’s tweets
+    * [x] Filter op tweets zonder hashtags, afbeeldingen en links. 
+        * Een solide theorie is dat Trump tweet vanaf een Android toestel. Echter sinds Maart 2017 is Trump ook een iPhone gaan gebruiken. Inititief Did Trump Tweet It? heeft machine learning toegepast op de Android tweets. Zo concludeert data scientist David Robinson dat Trump bijna nooit hashtags, afbeeldingen of links gebruikt.
+6. [x] Maak nieuwe dataset (store in variable) vanaf inauguratie 2017-01-20
+
+```{r acquire, message=FALSE, warning=FALSE, results='hide'}
+# Loading the used libraries
+library(tidyverse)
+library(tidytext)
+library(ggthemes)
+library(DT)
+# Set working directory
+setwd("/Users/Thomas/work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/Tweet_analysis")
+# Get downloaded dataset
+tweets_2015_now <- read.csv("2017-12-04_tweets.csv")
+```
+
+## Klaarmaken voor analyse
+Voor dat we met de data kunnen werken moet het eerst worden schoongemaakt. Ook moeten variablen zoals vooral de `created_at` variabel geconverteerd worden naar het juiste type.
+
+```{r prepare, message=FALSE, warning=FALSE, results='hide'}
+#Create tibble for better data printing
+tweets_2015_now <- as.tibble(tweets_2015_now)
+# Convert created_at column to right 'date' class and with year-month-day hour:minutes:seconds format.
+tweets_2015_now$created_at <- as.POSIXct(strptime(as.character(tweets_2015_now$created_at), 
+                                                  format = "%m-%d-%Y %H:%M:%S", 
+                                                  tz = "GMT")) # Dates original set were in "GMT" time zone
+# Delete retweets and filter out all other devices but iphone and android
+tweets_2015_now <- tweets_2015_now %>%
+  filter(is_retweet != "true",
+         source == "Twitter for iPhone" |
+           source == "Twitter for Android") %>%
+  select(2, 3, 1, 4, 5, 7) # Reorder columns and after filtering on 'no RT's' that column 6 isn't needed anymore.
+# Add column with tweet id in dataset, `id_str` becomes redundant
+tweets_2015_now <- rowid_to_column(tweets_2015_now, "ID") %>%
+  select(2, 1, 3, 4, 5, 6)
+# Create subset without hashtags, pictures, links. Pictures are not stored as strings anymore.
+tweets_2015_now <- tweets_2015_now %>%
+  filter(!grepl("http|#", text))
+# Get rid of emoji characters R doesn't like them
+tweets_2015_now$text <- gsub("[^\x01-\x7F]", "", tweets_2015_now$text)
+```
+
+## Dataset vanaf inauguratie
+
+Nieuwe dataset `tweets_first_year` is gefilterd op alle tweets op en na Trump's inauguratie, 20-01-2017. De dataset bevat 999 tweets.
+
+```{r analysis-01, message=FALSE, warning=FALSE}
+tweets_first_year <- tweets_2015_now %>%
+  filter(created_at > "2017-01-20")
+```
+
+# Data analyseren
+
+1. [x] Sorteer tweets met meeste Retweets en Favourites
+*  [ ] Tidytext Package tekst analyse
+    * [x] unnest_tokens, trek tweets uit elkaar, per woord
+    * [x] Verwijder stopwoorden, want onzinnig voor analyse
+    * [x] Verwijder cijfers
+    * [x] Meest gebruikte woorden
+    * [x] Woorden met de meeste retweets en favourites
+    * [ ] Sentiment analyse per woord
+
+## Tweets met meeste retweets of favourites
+Vanaf inauguratie.
+
+```{r}
+# Top 10 retweets
+most_rt <- tweets_first_year %>%
+  arrange(desc(retweet_count)) %>%
+  select(1, 5, 6)
+# Top 10 favoured
+most_fav <- tweets_first_year %>%
+  arrange(desc(favorite_count)) %>%
+  select(1, 6, 5)
+# Html widget interactive table in rmarkdown report
+datatable(head(most_rt, n = nrow(most_rt)), options = list(pageLength = 5)) 
+```
+
+## Text analyse per woord
+Welke woorden gebruikt Trump het meest in zijn tweets?
+
+### Vanaf inauguratie
+Vanaf zijn inauguratie op 20-01-2017.
+
+```{r analysis-02, message=FALSE, warning=FALSE}
+# Create new dataset `tweets_fy_words` (tweets first year words)
+tweets_fy_words <- tweets_first_year %>%
+  unnest_tokens(word, text) %>%
+  select(c(ID, word))
+# Remove stopwords, which are not useful
+tweets_fy_words <- tweets_fy_words %>%
+  anti_join(stop_words)
+# Sort on most used words
+most_used_words <- tweets_fy_words %>% 
+  count(word, sort = TRUE) %>%
+  filter(word != "amp", # Remove word "amp", comes from &amp is actualy empty space.
+         !grepl("[0-9]+", word)) %>% # Remove strings that are numbers.
+  mutate(times_used = n,
+         word = reorder(word, times_used)) %>%
+  select(word, times_used)
+
+# Plot in bar chart
+most_used_words_plot <- most_used_words %>%
+  head(20) %>%
+    ggplot(aes(x = word, y = times_used)) +
+    geom_col(fill = "#03A9F4") +
+    coord_flip() +
+    theme_minimal() +
+    theme(panel.grid.major.y = element_blank(),
+          plot.background = element_blank(),
+          plot.title = element_text(size = 18),
+          panel.grid.major.x = element_line(colour = "#AFACAC",
+                                            linetype = "dotted")) +
+    labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+         subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
+         x = NULL, 
+         y = "Aantal keer gebruikt")
+# Plot
+most_used_words_plot
+# Html widget interactive table in rmarkdown report
+datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageLength = 5)) 
+```
+
+### Vanaf kandidaatstelling
+Vanaf zijn officiele bekendmaking van kandidaatstelling op 16-06-2015
+
+```{r analysis-03, message=FALSE, warning=FALSE}
+# Create new dataset `tweets_fy_words` (tweets first year words)
+tweets_2015_words <- tweets_2015_now %>%
+  unnest_tokens(word, text) %>%
+  select(c(ID, word))
+# Remove stopwords, which are not useful
+tweets_2015_words <- tweets_2015_words %>%
+  anti_join(stop_words)
+# Sort on most used words
+most_used_words_2015 <- tweets_2015_words %>% 
+  count(word, sort = TRUE) %>%
+  filter(word != "amp" & word != "00" & word != "realdonaldtrump", # Remove redundant words
+         !grepl("[0-9]+", word)) %>% # Remove strings that are numbers
+  mutate(times_used = n,
+         word = reorder(word, times_used)) %>%
+  select(word, times_used)
+
+# Plot in bar chart
+most_used_words_2015_plot <- most_used_words_2015 %>%
+  head(20) %>%
+    ggplot(aes(x = word, y = times_used)) +
+    geom_col(fill = "#B71C1C") +
+    coord_flip() +
+    theme_minimal() +
+    theme(panel.grid.major.y = element_blank(),
+          plot.background = element_blank(),
+          plot.title = element_text(size = 18),
+          panel.grid.major.x = element_line(colour = "#AFACAC",
+                                            linetype = "dotted")) +
+    labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+         subtitle = "Vanaf officiële kandidaatstelling op 16-06-2015.",
+         x = NULL, 
+         y = "Aantal keer gebruikt")
+
+# Plot
+most_used_words_2015_plot
+# Html widget interactive table in rmarkdown report
+datatable(head(most_used_words_2015, n = nrow(most_used_words_2015)), options = list(pageLength = 5))
+```
+
+## Sentimentanalyse
+
+Een sentimentanalyse meet de emotie van een woord. Ik gebruik de [tidytext package](http://tidytextmining.com) (een R library), gemaakt door data scientists *Julia Silge* en *David Robinson*, om verschillende lexicons langs de woorden uit de tweets van Trump te leggen. Via de tidytext package zijn drie 'General-Purpose lexicons' beschikbaar die elk woorden op een andere manier meten.
+
+1. `nrc`: categoriseerd woorden binair (ja/nee) op de sentimenten: *positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise,* en *trust*.
+2. `bing`: categoriseerd woorden binair op *negative* en *positive*.
+3. `AFINN` scoort woorden op positief en negatief tussen -5 en 5.
+
+De sentimentanalyse wordt alleen gedaan met de `tweets_first_year` en `most_used_words` dataset.
+
+### Woorden gescoord op sentiment
+
+Het is allereerst **goed om te weten dat niet alle woorden een 'sentimentele waarde' hebben**. Heel veel woorden zijn neutraal. Zelfstandige naamwoorden bijvoorbeeld of namen van personen die genoemd worden zijn positief noch negatief. Vanaf nu worden alleen de woorden meegenomen die je kan catagoriseren op negatief en positief of 'heel negatief' (-5) tot 'heel positief' (5).
+
+1. [x] Laat verdeling negatieve en positieve woorden zien met `bing` lexicon
+2. [x] Hoe ziet de negatieve/positieve verdeling er over het hele jaar uit? `AFINN` lexicon. 
+3. [ ] Wat is het sentiment (negatief/positief) van de woorden die het meest worden geretweet/gefavorite?
+3. [ ] Dubbel check met `sentimentr` package.
+
+```{r lexicon-analysis, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
+# Frist use the 'bing' lexicon to see what the distribution is of negative and positive words
+most_used_words %>% 
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  group_by(sentiment) %>%
+  summarise(count = n(),
+            words = sum(times_used)) %>%
+  mutate(total = count * words) %>%
+  ggplot(aes(x = sentiment, y = total)) +
+  geom_col(aes(fill = sentiment)) +
+  geom_text(aes(label = total), 
+            hjust = 1.2,
+            colour = "white",
+            fontface = "bold",
+            size = 5) +
+  coord_flip() +
+  scale_fill_manual(values = c("#B71C1C", "#03A9F4")) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = 0) +
+  labs(title = "Trump tweet bijna twee keer zoveel negatieve\nals positieve woorden",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Aantal woorden")
+```
+
+
+Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de AFFIN lexicon te gebruiken. De nrc vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. Door de -5 (heel negatief) tot 5 (heel positief) schaal worden woorden beter gewogen.
+
+Woorden gesorteerd op retweets, maar ga je gang en sorteer op favorites of browse door pagina's.
+```{r, message=FALSE, warning=FALSE}
+# Overwrite `tweets_fy_words` with more variables
+tweets_fy_words <- tweets_first_year %>%
+  unnest_tokens(words, text) %>%
+  rename(word = words)
+# Add afinn lecxicon and scores with, words most retweets
+most_rt_words <- inner_join(tweets_fy_words, get_sentiments("afinn")) %>%
+  arrange(desc(retweet_count)) %>%
+  select(c(word, score, retweet_count, favorite_count, ID))
+# Html widget interactive table in rmarkdown report
+datatable(head(most_rt_words, n = nrow(most_rt_words)), options = list(pageLength = 10))
+```
+
+**Berekenen MEDIAN rt's van woorden en dan pas sorteren!**
+
+
+
