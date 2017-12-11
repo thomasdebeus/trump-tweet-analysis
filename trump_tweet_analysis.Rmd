@@ -86,6 +86,7 @@ library(tidytext)
 library(ggthemes)
 library(DT)
 library(devtools)
+library(sentimentr)
 library(exploratory) # installed package via: devtools::install_github("exploratory-io/exploratory_func")
 # Set working directory
 setwd("/Users/Thomas/work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/Tweet_analysis")
