@@ -307,7 +307,6 @@ most_rt_words <- inner_join(tweets_fy_words, get_sentiments("afinn")) %>%
 datatable(head(most_rt_words, n = nrow(most_rt_words)), options = list(pageLength = 10))
 ```
 
-**Berekenen MEDIAN rt's van woorden en dan pas sorteren!**
 
 
 
