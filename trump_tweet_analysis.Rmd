@@ -292,7 +292,7 @@ most_used_words %>%
             fontface = "bold",
             size = 5) +
   coord_flip() +
-  scale_fill_manual(values = c("#B71C1C", "#03A9F4")) +
+  scale_fill_manual(values = colours_pn) +
   theme_minimal() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
@@ -326,7 +326,7 @@ ggplot(aes(x = pos_neg, fill = pos_neg)) +
             fontface = "bold",
             size = 5) +
   coord_flip() +
-  scale_fill_manual(values = c("#B71C1C", "#03A9F4")) +
+  scale_fill_manual(values = colours_pn) +
   theme_minimal() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
@@ -378,7 +378,6 @@ president_tweets %>%
        subtitle = "Vanaf inauguratie.",
        x = NULL,
        y = "Sentiment")
-
 ```
 
 
@@ -393,8 +392,34 @@ datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options =
 * [ ] Gemiddelde sentiment tweets per week
 
 ```{r}
-president_tweets %>%
-  group_by(created_at)
+president_weeks <- president_tweets %>%
+  group_by(week = week(created_at)) %>% 
+  mutate(mean = mean(sentiment),
+         median = median(sentiment),
+         median_pos_neg = ifelse(median >= 0, "positive", "negative"),
+         nr_tweets = n()) %>%
+  ungroup()
+
+president_weeks %>%
+  ggplot(aes(x = week, y = median)) +
+  geom_line(size = 0.3) +
+  geom_hline(yintercept = 0, 
+             color = "black", 
+             size = 0.5,
+             linetype = "dashed") +  
+  geom_point(aes(size = nr_tweets,
+                 colour = median_pos_neg),
+             alpha = 0.5) +
+  scale_colour_manual(values = colours_pn) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18)) +
+  labs(title = "Median sentiment tweets per week",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")  
+
 ```
 
 
