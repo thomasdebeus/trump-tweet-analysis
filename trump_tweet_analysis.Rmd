@@ -388,18 +388,19 @@ Filter op negatief of positief sentiment of zoek naar bepaalde woorden in tweets
 datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
 
-* [ ] Gemiddelde sentiment tweets per dag
-* [ ] Gemiddelde sentiment tweets per week
+* [ ] Gemiddelde (median of mean?) sentiment tweets per week
 
 ```{r}
+# Create dataset with calculated weeks, means, medians, number of tweet per week
 president_weeks <- president_tweets %>%
   group_by(week = week(created_at)) %>% 
   mutate(mean = mean(sentiment),
          median = median(sentiment),
          median_pos_neg = ifelse(median >= 0, "positive", "negative"),
-         nr_tweets = n()) %>%
+         nr_of_tweets = n()) %>%
   ungroup()
 
+# Median sentiment tweets per week
 president_weeks %>%
   ggplot(aes(x = week, y = median)) +
   geom_line(size = 0.3) +
@@ -407,19 +408,22 @@ president_weeks %>%
              color = "black", 
              size = 0.5,
              linetype = "dashed") +  
-  geom_point(aes(size = nr_tweets,
-                 colour = median_pos_neg),
-             alpha = 0.5) +
-  scale_colour_manual(values = colours_pn) +
+  geom_point(aes(size = nr_of_tweets,
+                 colour = median_pos_neg)) +
+  scale_colour_manual(values = colours_pn,
+                      guide = FALSE) +
+  scale_size_continuous(breaks = seq(0,60,20)) +
+  scale_x_continuous(breaks = seq(0,52,5)) +
   theme_minimal() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
-        plot.title = element_text(size = 18)) +
+        plot.title = element_text(size = 18),
+        legend.position = c(0.9,0.9),
+        legend.background = element_rect()) +
   labs(title = "Median sentiment tweets per week",
        subtitle = "Vanaf inauguratie.",
        x = NULL,
        y = "Sentiment")  
-
 ```
 
 
