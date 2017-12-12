@@ -147,7 +147,8 @@ datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), opt
 # Data analyseren
 
 1. [x] Sorteer tweets met meeste Retweets en Favourites
-*  [ ] Tidytext Package tekst analyse
+2. [ ] Hoeveel tweets verstuurd Trump gemiddeld per dag
+3.  [ ] Tidytext Package tekst analyse
     * [x] unnest_tokens, trek tweets uit elkaar, per woord
     * [x] Verwijder stopwoorden, want onzinnig voor analyse
     * [x] Verwijder cijfers
@@ -169,7 +170,7 @@ datatable(head(most_rt[,c(2,5,6,1)], n = nrow(most_rt)), options = list(pageLeng
 ## Text analyse per woord
 Welke woorden gebruikt Trump het meest in zijn tweets?
 
-## Vanaf Inauguratie
+### Vanaf Inauguratie
 
 ```{r analysis-02, message=FALSE, warning=FALSE}
 # Create new dataset `tweets_fy_words` (tweets first year words)
@@ -396,7 +397,7 @@ Filter op negatief of positief sentiment of zoek naar bepaalde woorden in tweets
 datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
 
-* [ ] Gemiddelde (median of mean?) sentiment tweets per week
+### Mediaan sentiment per week
 
 ```{r}
 # Create dataset with calculated weeks, means, medians, number of tweet per week
