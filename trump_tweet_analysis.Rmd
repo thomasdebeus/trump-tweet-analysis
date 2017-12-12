@@ -326,9 +326,13 @@ datatable(head(word_most_rts, n = nrow(word_most_rts)), options = list(pageLengt
 Scoort sentiment op hele zinnen.
 
 ```{r}
-tweets_first_year %>% 
-  mutate(get_sentiment(text))
-  
+sentiment_per_tweet <- tweets_first_year %>% 
+  mutate(sentiment = get_sentiment(text)) %>%
+  arrange(desc(sentiment)) %>%
+  select(sentiment, text)
+
+# Html widget interactive table in rmarkdown report
+datatable(head(sentiment_per_tweet, n = nrow(sentiment_per_tweet)), options = list(pageLength = 5))
 ```
 
 
