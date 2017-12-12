@@ -15,10 +15,8 @@ output:
   #TOC {
     position: fixed;
     left: 0;
-    top: 5;
-    padding: 10;
-    border: 1.5px dashed #1EA1F3;
-    width: 300px;
+    top: 10;
+    width: 350px;
     height: 100%;
     overflow:auto;
   }

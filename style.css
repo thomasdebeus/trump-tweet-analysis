@@ -1,18 +1,11 @@
-
-html, body {
-    height: 100%;
-}
-
-html {
-    display: table;
-    margin: auto;
-}
-
 body {
-    display: table-cell;
-    vertical-align: middle;
-    max-width: 600px;
-    margin-left:310px;
-    line-height: 20px;
-    font-family: "Roboto", "Helvetica Neue", Helvetica, "Liberation Sans", Calibri, Arial, sans-serif;
+  margin: auto;
+  margin-left:360px;
+  max-width: 550px;
+  line-height: 20px;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, "Liberation Sans", Calibri, Arial, sans-serif;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: "Roboto Condensed", "Helvetica Neue", Helvetica, "Liberation Sans", Calibri, Arial, sans-serif;
 }
