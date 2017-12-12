@@ -392,5 +392,9 @@ datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options =
 * [ ] Gemiddelde sentiment tweets per dag
 * [ ] Gemiddelde sentiment tweets per week
 
+```{r}
+president_tweets %>%
+  group_by(created_at)
+```
 
 
