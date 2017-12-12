@@ -188,25 +188,29 @@ most_used_words <- tweets_words %>%
   mutate(times_used = n,
          word = reorder(word, times_used)) %>%
   select(word, times_used)
-
+# Convert type word column to charcter for better handeling
+most_used_words$word <- as.character(most_used_words$word)
+# Sort on times_used
+most_used_words <- most_used_words %>%
+  arrange(desc(times_used))
 # Plot in bar chart
-most_used_words_plot <- most_used_words %>%
-  head(20) %>%
-    ggplot(aes(x = word, y = times_used)) +
-    geom_col(fill = "#03A9F4") +
-    coord_flip() +
-    theme_minimal() +
-    theme(panel.grid.major.y = element_blank(),
-          plot.background = element_blank(),
-          plot.title = element_text(size = 18),
-          panel.grid.major.x = element_line(colour = "#AFACAC",
-                                            linetype = "dotted")) +
-    labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
-         subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
-         x = NULL, 
-         y = "Aantal keer gebruikt")
+plot_most_used_words <- most_used_words %>%
+  top_n(20) %>%
+  ggplot(aes(x = reorder(word, times_used), times_used)) +
+  geom_col(fill = "#03A9F4") +
+  coord_flip() +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        panel.grid.major.x = element_line(colour = "#AFACAC",
+                                          linetype = "dotted")) +
+  labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+       subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
+       x = NULL, 
+       y = "Aantal keer gebruikt")
 # Plot
-most_used_words_plot
+plot_most_used_words
 # Html widget interactive table in rmarkdown report
 datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageLength = 5)) 
 ```
@@ -218,7 +222,7 @@ Vanaf zijn officiele bekendmaking van kandidaatstelling op 16-06-2015
 # Create new dataset `candidate`
 candidate_tweets <- all_tweets %>%
   filter(created_at > "2015-06-16")
-
+# seperte on words
 candidate_words <- candidate_tweets %>%
   unnest(text) %>% # Unnest gets rid of lists in text column
   unnest_tokens(word, text)
@@ -236,8 +240,9 @@ most_used_words_candidate <- candidate_words %>%
 
 # Plot in bar chart
 plot_most_used_words_candidate <- most_used_words_candidate %>%
-  head(20) %>%
-    ggplot(aes(x = word, y = times_used)) +
+  arrange(desc(times_used)) %>%
+  top_n(20) %>%
+    ggplot(aes(x = reorder(word, times_used), times_used)) +
     geom_col(fill = "#03A9F4") +
     coord_flip() +
     theme_minimal() +
@@ -265,7 +270,7 @@ Een sentimentanalyse meet de emotie van een woord. Ik gebruik de [tidytext packa
 2. `bing`: categoriseerd woorden binair op *negative* en *positive*.
 3. `AFINN` scoort woorden op positief en negatief tussen -5 en 5.
 
-De sentimentanalyse wordt alleen gedaan met de `tweets_first_year` en `most_used_words` dataset.
+De sentimentanalyse wordt alleen gedaan met de `president_tweets` en `most_used_words` dataset.
 
 ### Woorden gescoord op sentiment
 
@@ -277,7 +282,10 @@ Het is allereerst **goed om te weten dat niet alle woorden een 'sentimentele waa
 3. [ ] Dubbel check met `sentimentr` package.
 
 ```{r lexicon-analysis, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
-# Frist use the 'bing' lexicon to see what the distribution is of negative and positive words
+# Colours variable for negative and positive sentiments
+colours_pn <- c("#B10026", "#4575B4")
+
+# First use the 'bing' lexicon to see what the distribution is of negative and positive words
 most_used_words %>% 
   inner_join(get_sentiments("bing"), by = "word") %>%
   group_by(sentiment) %>%
@@ -314,8 +322,6 @@ Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik be
 ```{r sentimentr-viz, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
 # Add column with catagories positive and negative column
 president_tweets <- president_tweets %>% mutate(pos_neg = ifelse(president_tweets$sentiment >= 0, "positive", "negative"))
-# Colour for negative and positive sentiments
-colours_pn <- c("#B10026", "#4575B4")
 # Total negative/positve tweets
 president_tweets %>%
 ggplot(aes(x = pos_neg, fill = pos_neg)) +
@@ -346,7 +352,8 @@ ggplot(aes(x = pos_neg, fill = pos_neg)) +
 president_tweets %>%
   ggplot(aes(x = created_at, y = sentiment)) +
   geom_line(aes(colour = pos_neg)) +
-  geom_hline(yintercept = 0, color = "black", size = 1) +
+  geom_hline(yintercept = 0, color = "black", size = 0.5,
+             linetype = "dashed") +
   scale_colour_manual(values = colours_pn) +
   theme_minimal() +
   theme(panel.grid.major.y = element_blank(),
@@ -367,7 +374,8 @@ president_tweets %>%
              alpha = 0.7) +
   geom_line(aes(colour = pos_neg),
             size = 0.1) +
-  geom_hline(yintercept = 0, color = "black", size = 1) +
+  geom_hline(yintercept = 0, color = "black", size = 0.5,
+             linetype = "dashed") +
   scale_colour_manual(values = colours_pn) +
   theme_minimal() +
   theme(panel.grid.major.y = element_blank(),
