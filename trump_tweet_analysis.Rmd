@@ -15,7 +15,9 @@ output:
   #TOC {
     position: fixed;
     left: 0;
-    top: 0;
+    top: 5;
+    padding: 10;
+    border: 1.5px dashed #1EA1F3;
     width: 300px;
     height: 100%;
     overflow:auto;
@@ -440,5 +442,9 @@ president_weeks %>%
        x = NULL,
        y = "Sentiment")  
 ```
+
+[ ] Check 'same' analysis with tidytext package.
+
+
 
 

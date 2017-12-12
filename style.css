@@ -1,7 +1,18 @@
+
+html, body {
+    height: 100%;
+}
+
+html {
+    display: table;
+    margin: auto;
+}
+
 body {
-  max-width: 600px;
-  margin: auto;
-  margin-left:310px;
-  line-height: 20px;
-  font-family: "Roboto", "Helvetica Neue", Helvetica, "Liberation Sans", Calibri, Arial, sans-serif;
+    display: table-cell;
+    vertical-align: middle;
+    max-width: 600px;
+    margin-left:310px;
+    line-height: 20px;
+    font-family: "Roboto", "Helvetica Neue", Helvetica, "Liberation Sans", Calibri, Arial, sans-serif;
 }
