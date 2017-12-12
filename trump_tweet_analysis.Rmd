@@ -389,7 +389,8 @@ Filter op negatief of positief sentiment of zoek naar bepaalde woorden in tweets
 datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
 
-
+* [ ] Gemiddelde sentiment tweets per dag
+* [ ] Gemiddelde sentiment tweets per week
 
 
 
