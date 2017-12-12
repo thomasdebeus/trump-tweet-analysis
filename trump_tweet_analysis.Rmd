@@ -306,12 +306,11 @@ most_used_words %>%
        y = "Aantal woorden")
 ```
 
-Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de AFFIN lexicon te gebruiken. De nrc vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. Door de -5 (heel negatief) tot 5 (heel positief) schaal worden woorden beter gewogen.
-
 ### Sentimentr package
-Scoort sentiment op tweets.
+Scoort tweets op sentiment van -1 (heel negatief) tot 1 (heel positief). Een uitleg waarom sentimentr kan je op [hun Github pagina](https://github.com/trinker/sentimentr) lezen. 
 
-Filter op sentiment om de meest negatieve en positieve tweets te lezen.
+Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de sentimentr package te gebruiken. De `nrc` vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. De `bing` lexicon scoort binair dus verschil tussen sentiment van tweets kan niet erg goed worden weergegeven. 
+
 ```{r sentimentr-viz, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
 # Add column with catagories positive and negative column
 president_tweets <- president_tweets %>% mutate(pos_neg = ifelse(president_tweets$sentiment >= 0, "positive", "negative"))
@@ -379,9 +378,18 @@ president_tweets %>%
        subtitle = "Vanaf inauguratie.",
        x = NULL,
        y = "Sentiment")
+
+```
+
+
+Filter op negatief of positief sentiment of zoek naar bepaalde woorden in tweets.
+```{r sent-tweets, message=FALSE, warning=FALSE}
 # Dataset sorted by negative sentiment
 # HTML widget
 datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
+
+
+
 
 
