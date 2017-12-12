@@ -154,7 +154,8 @@ datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), opt
     * [x] Verwijder cijfers
     * [x] Meest gebruikte woorden
     * [x] Woorden met de meeste retweets en favourites
-    * [ ] Sentiment analyse per woord
+    * [x] Sentiment analyse per woord
+    * [x] Sentiment analyse hele tweet. Visuals per tweet en mediaan sentiment per week.
 
 ## Tweets met meeste retweets
 Of filter op favorites.
