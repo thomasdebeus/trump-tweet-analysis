@@ -42,7 +42,7 @@ Maar ook de moeilijke vragen zoals:
 * Welke emoties kleuren zijn taalgebruik?
 * Wanneer lopen de spanningen hoog op?
 
-Taal is voor een computer moeilijk te vatten. Taal heeft duizenden jaren ontwikkeling meegemaakt en zodoende bereikt het een hoog abstractie niveau. Toch gaan we dit proberen. 
+Taal is voor een computer moeilijk te vatten. Taal heeft duizenden jaren ontwikkeling meegemaakt en zodoende bereikt het een hoog abstractie niveau. Deze analyse kan dan ook niet 'waterdicht' zijn alleen al om het feit dat iedereen een andere interpretatie heeft van taal. Toch gaan we dit proberen. 
 
 *Deze pagina wordt geupdate als er weer nieuwe inzichten in de analyse naar voren komen*.
 
@@ -82,52 +82,67 @@ Taken die nodig zijn om de hoofdvragen te kunnen beantwoorden zijn weer gegeven 
 ```{r acquire, message=FALSE, warning=FALSE, results='hide'}
 # Loading the used libraries
 library(tidyverse)
+library(lubridate)
 library(tidytext)
 library(ggthemes)
 library(DT)
 library(devtools)
 library(sentimentr)
 library(exploratory) # installed package via: devtools::install_github("exploratory-io/exploratory_func")
-# Set working directory
-setwd("/Users/Thomas/work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/Tweet_analysis")
-# Get downloaded dataset
-tweets_2015_now <- read.csv("2017-12-04_tweets.csv")
+
+# url Trump Twitter Archive
+url <- 'http://www.trumptwitterarchive.com/data/realdonaldtrump/%s.json'
+# Retrieve all trump's tweets and create dataset with converted `created_at` character dates 
+original_df <- map(2009:2017, ~sprintf(url, .x)) %>%
+  map_df(jsonlite::fromJSON, simplifyDataFrame = TRUE) %>%
+  mutate(created_at = parse_date_time(created_at, "a b! d! H!:M!:S! z!* Y!")) %>%
+  tbl_df()
+
+# If above doesn't work download data on website then: 
+# original_df <- read.csv("filename.csv", quote = "", comment = "")
 ```
 
-## Klaarmaken voor analyse
-Voor dat we met de data kunnen werken moet het eerst worden schoongemaakt. Ook moeten variablen zoals vooral de `created_at` variabel geconverteerd worden naar het juiste type.
+## Klaarmaken voor analyse: Wanneer zijn de tweets afkomstig van Trump zelf?
+
+Het uiteindelijke doel is om een dataset te maken met unieke Trump tweets. Omdat data scientist David Robinson in zijn analyse, [Text analysis of Trump's tweets confirms he writes only the (angrier) Android half](http://varianceexplained.org/r/trump-tweets/), er vrijwel zeker is dat Trump destijds een Android toestel gebruikte [passen anderen machine learning toe](http://didtrumptweetit.com/).
+
+Robinson concludeert een jaar later in een follow-up: [Trump's Android and iPhone tweets, one year later](http://varianceexplained.org/r/trump-followup/) dat Trump vrijwel altijd tweet:
+
+* zonder links, hashtags of afbeeldingen
+* afkomstig van een Android toestel (tot hij een iPhone kocht eind maart 2017) of een iPhone
+
+Wij zullen dat in deze analyse overnemen door de computer op tweets te laten filteren waarvan de `text` hashtags ("#") en/of links ("http") bevatten. Afbeeldingen worden  tegenwoordig niet meer in de text van de tweets meegenomen. Ook nemen we de tweets die vanaf andere toestellen () afkomstig zijn niet mee.
+
+Het spreekt voor zich dat we alleen originele retweets meenemen dus geen retweets. Bovendien zullen gelijk al filteren op de tweets die vanaf zijn inauguratie zijn verstuurd (20-101-2017).
 
 ```{r prepare, message=FALSE, warning=FALSE, results='hide'}
-#Create tibble for better data printing
-tweets_2015_now <- as.tibble(tweets_2015_now)
-# Convert created_at column to right 'date' class and with year-month-day hour:minutes:seconds format.
-tweets_2015_now$created_at <- as.POSIXct(strptime(as.character(tweets_2015_now$created_at), 
-                                                  format = "%m-%d-%Y %H:%M:%S", 
-                                                  tz = "GMT")) # Dates original set were in "GMT" time zone
-# Delete retweets and filter out all other devices but iphone and android
-tweets_2015_now <- tweets_2015_now %>%
+# Subset data on high probability that Trump himself is actually tweeting and add
+all_tweets <- original_df %>%
+  rename(retweets = retweet_count,
+         favorites = favorite_count) %>%
   filter(is_retweet != "true",
          source == "Twitter for iPhone" |
-           source == "Twitter for Android") %>%
-  select(2, 3, 1, 4, 5, 7) # Reorder columns and after filtering on 'no RT's' that column 6 isn't needed anymore.
-# Add column with tweet id in dataset, `id_str` becomes redundant
-tweets_2015_now <- rowid_to_column(tweets_2015_now, "ID") %>%
-  select(2, 1, 3, 4, 5, 6)
-# Create subset without hashtags, pictures, links. Pictures are not stored as strings anymore.
-tweets_2015_now <- tweets_2015_now %>%
-  filter(!grepl("http|#", text))
+         source == "Twitter for Android",
+         !grepl("http|#", text)) %>%
+  rowid_to_column("ID") %>%
+  select(ID, text, created_at, retweets, favorites)
 # Get rid of emoji characters R doesn't like them
-tweets_2015_now$text <- gsub("[^\x01-\x7F]", "", tweets_2015_now$text)
-```
-
-## Dataset vanaf inauguratie
-
-Nieuwe dataset `tweets_first_year` is gefilterd op alle tweets op en na Trump's inauguratie, 20-01-2017. De dataset bevat 999 tweets.
-
-```{r analysis-01, message=FALSE, warning=FALSE}
-tweets_first_year <- tweets_2015_now %>%
+all_tweets$text <- gsub("[^\x01-\x7F]", "", all_tweets$text)
+# The sentimentr package advices to first create sentences (creates lists of sentences per tweet in text column) for faster analysis.
+all_tweets$text <- get_sentences(all_tweets$text)
+# Add column and let the sentimentr package calculate sentiments per tweet.
+all_tweets <- all_tweets %>%
+  mutate(sentiment = get_sentiment(text)) %>%
+  select(sentiment, text, everything()) # reorder columns
+# Round numbers on three decimals
+all_tweets$sentiment <- round(all_tweets$sentiment, digits = 3)
+# Create dataset since inauguration
+president_tweets <- all_tweets %>%
   filter(created_at > "2017-01-20")
+# Html widget interactive table in rmarkdown report with only the four useful columns
+datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
+
 
 # Data analyseren
 
@@ -140,41 +155,36 @@ tweets_first_year <- tweets_2015_now %>%
     * [x] Woorden met de meeste retweets en favourites
     * [ ] Sentiment analyse per woord
 
-## Tweets met meeste retweets of favourites
-Vanaf inauguratie.
+## Tweets met meeste retweets
+Of filter op favorites.
 
 ```{r}
 # Top 10 retweets
-most_rt <- tweets_first_year %>%
-  arrange(desc(retweet_count)) %>%
-  select(1, 5, 6)
-# Top 10 favoured
-most_fav <- tweets_first_year %>%
-  arrange(desc(favorite_count)) %>%
-  select(1, 6, 5)
+most_rt <- president_tweets %>%
+  arrange(desc(retweets))
 # Html widget interactive table in rmarkdown report
-datatable(head(most_rt, n = nrow(most_rt)), options = list(pageLength = 5)) 
+datatable(head(most_rt[,c(2,5,6,1)], n = nrow(most_rt)), options = list(pageLength = 5)) 
 ```
 
 ## Text analyse per woord
 Welke woorden gebruikt Trump het meest in zijn tweets?
 
-### Vanaf inauguratie
-Vanaf zijn inauguratie op 20-01-2017.
+## Vanaf Inauguratie
 
 ```{r analysis-02, message=FALSE, warning=FALSE}
 # Create new dataset `tweets_fy_words` (tweets first year words)
-tweets_fy_words <- tweets_first_year %>%
-  unnest_tokens(word, text) %>%
-  select(c(ID, word))
-# Remove stopwords, which are not useful
-tweets_fy_words <- tweets_fy_words %>%
-  anti_join(stop_words)
+tweets_words <- president_tweets %>%
+  unnest(text) %>% # Unnest gets rid of lists in text column
+  unnest_tokens(word, text)
+# Remove stop words and numbers, which aren't useful
+tweets_words <- tweets_words %>%
+  anti_join(stop_words) %>%
+  filter(!grepl("[0-9]+", word),
+         word != "amp") # Because in text is 'space' coded as "amp&"
+
 # Sort on most used words
-most_used_words <- tweets_fy_words %>% 
+most_used_words <- tweets_words %>% 
   count(word, sort = TRUE) %>%
-  filter(word != "amp", # Remove word "amp", comes from &amp is actualy empty space.
-         !grepl("[0-9]+", word)) %>% # Remove strings that are numbers.
   mutate(times_used = n,
          word = reorder(word, times_used)) %>%
   select(word, times_used)
@@ -205,27 +215,30 @@ datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageL
 Vanaf zijn officiele bekendmaking van kandidaatstelling op 16-06-2015
 
 ```{r analysis-03, message=FALSE, warning=FALSE}
-# Create new dataset `tweets_fy_words` (tweets first year words)
-tweets_2015_words <- tweets_2015_now %>%
-  unnest_tokens(word, text) %>%
-  select(c(ID, word))
+# Create new dataset `candidate`
+candidate_tweets <- all_tweets %>%
+  filter(created_at > "2015-06-16")
+
+candidate_words <- candidate_tweets %>%
+  unnest(text) %>% # Unnest gets rid of lists in text column
+  unnest_tokens(word, text)
 # Remove stopwords, which are not useful
-tweets_2015_words <- tweets_2015_words %>%
-  anti_join(stop_words)
+candidate_words <- candidate_words %>%
+  anti_join(stop_words) %>%
+  filter(!grepl("[0-9]+", word),
+         word != "amp") # Because in text is 'space' coded as "amp&"
 # Sort on most used words
-most_used_words_2015 <- tweets_2015_words %>% 
+most_used_words_candidate <- candidate_words %>% 
   count(word, sort = TRUE) %>%
-  filter(word != "amp" & word != "00" & word != "realdonaldtrump", # Remove redundant words
-         !grepl("[0-9]+", word)) %>% # Remove strings that are numbers
   mutate(times_used = n,
          word = reorder(word, times_used)) %>%
   select(word, times_used)
 
 # Plot in bar chart
-most_used_words_2015_plot <- most_used_words_2015 %>%
+plot_most_used_words_candidate <- most_used_words_candidate %>%
   head(20) %>%
     ggplot(aes(x = word, y = times_used)) +
-    geom_col(fill = "#B71C1C") +
+    geom_col(fill = "#03A9F4") +
     coord_flip() +
     theme_minimal() +
     theme(panel.grid.major.y = element_blank(),
@@ -239,9 +252,9 @@ most_used_words_2015_plot <- most_used_words_2015 %>%
          y = "Aantal keer gebruikt")
 
 # Plot
-most_used_words_2015_plot
+plot_most_used_words_candidate
 # Html widget interactive table in rmarkdown report
-datatable(head(most_used_words_2015, n = nrow(most_used_words_2015)), options = list(pageLength = 5))
+datatable(head(most_used_words_candidate, n = nrow(most_used_words_candidate)), options = list(pageLength = 5))
 ```
 
 ## Sentimentanalyse
@@ -295,46 +308,80 @@ most_used_words %>%
 
 Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de AFFIN lexicon te gebruiken. De nrc vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. Door de -5 (heel negatief) tot 5 (heel positief) schaal worden woorden beter gewogen.
 
-Woorden gesorteerd op retweets, maar ga je gang en sorteer op favorites of browse door pagina's.
-```{r, message=FALSE, warning=FALSE}
-# Overwrite `tweets_fy_words` with more variables
-tweets_fy_words <- tweets_first_year %>%
-  unnest_tokens(words, text) %>%
-  rename(word = words)
-
-# Total retweets each word
-totals <- tweets_fy_words %>% 
-  group_by(word) %>% 
-  summarise(total_rts = sum(retweet_count))
-# Words with most retweets (median) if more than 5 times used with afinn score
-word_most_rts <- tweets_fy_words %>%
-  group_by(ID, word) %>% 
-  summarise(rts = first(retweet_count)) %>% 
-  group_by(word) %>% 
-  summarise(median_rts = median(rts), uses = n()) %>%
-  left_join(totals) %>%
-  ungroup() %>%
-  filter(uses > 5) %>%
-  arrange(desc(median_rts)) %>%
-  inner_join(get_sentiments("afinn"), by = "word")
-
-# Html widget interactive table in rmarkdown report
-datatable(head(word_most_rts, n = nrow(word_most_rts)), options = list(pageLength = 10))
-```
-
 ### Sentimentr package
-Scoort sentiment op hele zinnen.
+Scoort sentiment op tweets.
 
-```{r}
-sentiment_per_tweet <- tweets_first_year %>% 
-  mutate(sentiment = get_sentiment(text)) %>%
-  arrange(desc(sentiment)) %>%
-  select(sentiment, text)
+Filter op sentiment om de meest negatieve en positieve tweets te lezen.
+```{r sentimentr-viz, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
+# Add column with catagories positive and negative column
+president_tweets <- president_tweets %>% mutate(pos_neg = ifelse(president_tweets$sentiment >= 0, "positive", "negative"))
+# Colour for negative and positive sentiments
+colours_pn <- c("#B10026", "#4575B4")
+# Total negative/positve tweets
+president_tweets %>%
+ggplot(aes(x = pos_neg, fill = pos_neg)) +
+  geom_bar(stat = "count") +
+  geom_text(stat = "count", aes(label = ..count.., y = ..count..), 
+            hjust = 1.2,
+            colour = "white",
+            fontface = "bold",
+            size = 5) +
+  coord_flip() +
+  scale_fill_manual(values = c("#B71C1C", "#03A9F4")) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = 0) +
+  labs(title = "Trump verstuurde meer positieve dan negatieve tweets ",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Aantal tweets")
 
-# Html widget interactive table in rmarkdown report
-datatable(head(sentiment_per_tweet, n = nrow(sentiment_per_tweet)), options = list(pageLength = 5))
 ```
 
+```{r sentimentr-viz-02, message=FALSE, warning=FALSE,fig.width=8.2, fig.height=4.07}
+# Sentiments through time
+president_tweets %>%
+  ggplot(aes(x = created_at, y = sentiment)) +
+  geom_line(aes(colour = pos_neg)) +
+  geom_hline(yintercept = 0, color = "black", size = 1) +
+  scale_colour_manual(values = colours_pn) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = 0) +
+  labs(title = "Sentiment analyse per tweet",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")
+```
 
+```{r sentimentr-viz-03, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=4.07}
+# Sentiments through time with each individual tweet
+president_tweets %>%
+  ggplot(aes(x = created_at, y = sentiment)) +
+  geom_point(aes(colour = pos_neg),
+             alpha = 0.7) +
+  geom_line(aes(colour = pos_neg),
+            size = 0.1) +
+  geom_hline(yintercept = 0, color = "black", size = 1) +
+  scale_colour_manual(values = colours_pn) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = 0) +
+  labs(title = "Sentiment analyse per tweet",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")
+# Dataset sorted by negative sentiment
+# HTML widget
+datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
+```
 
 
