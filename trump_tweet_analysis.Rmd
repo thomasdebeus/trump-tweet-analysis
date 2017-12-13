@@ -122,27 +122,31 @@ Het spreekt voor zich dat we alleen originele retweets meenemen dus geen retweet
 
 ```{r prepare, message=FALSE, warning=FALSE, results='hide'}
 # Subset data on high probability that Trump himself is actually tweeting and add
-all_tweets <- original_df %>%
+all_trump_tweets <- original_df %>%
   rename(retweets = retweet_count,
          favorites = favorite_count) %>%
   filter(is_retweet != "true",
          source == "Twitter for iPhone" |
          source == "Twitter for Android",
-         !grepl("http|#", text)) %>%
+         !grepl("http|#|RT|@realdonaldtrump|@realDonaldTrump", text)) %>%
   rowid_to_column("ID") %>%
-  select(ID, text, created_at, retweets, favorites)
+  select(ID, text, created_at, retweets, favorites, source)
+# Filter out all iPhone tweets before 25-03-2017
+all_trump_tweets <- all_trump_tweets %>%
+  filter((created_at < "2017-03-25" & source != "Twitter for iPhone") | created_at >= "2017-03-25") %>%
+  arrange(desc(created_at))
 # Get rid of emoji characters R doesn't like them
-all_tweets$text <- gsub("[^\x01-\x7F]", "", all_tweets$text)
+all_trump_tweets$text <- gsub("[^\x01-\x7F]", "", all_trump_tweets$text)
 # The sentimentr package advices to first create sentences (creates lists of sentences per tweet in text column) for faster analysis.
-all_tweets$text <- get_sentences(all_tweets$text)
+all_trump_tweets$text <- get_sentences(all_trump_tweets$text)
 # Add column and let the sentimentr package calculate sentiments per tweet.
-all_tweets <- all_tweets %>%
+all_trump_tweets <- all_trump_tweets %>%
   mutate(sentiment = get_sentiment(text)) %>%
   select(sentiment, text, everything()) # reorder columns
 # Round numbers on three decimals
-all_tweets$sentiment <- round(all_tweets$sentiment, digits = 3)
+all_trump_tweets$sentiment <- round(all_trump_tweets$sentiment, digits = 3)
 # Create dataset since inauguration
-president_tweets <- all_tweets %>%
+president_tweets <- all_trump_tweets %>%
   filter(created_at > "2017-01-20")
 # Html widget interactive table in rmarkdown report with only the four useful columns
 datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), options = list(pageLength = 5))
@@ -227,7 +231,7 @@ Vanaf zijn officiele bekendmaking van kandidaatstelling op 16-06-2015
 
 ```{r analysis-03, message=FALSE, warning=FALSE}
 # Create new dataset `candidate`
-candidate_tweets <- all_tweets %>%
+candidate_tweets <- all_trump_tweets %>%
   filter(created_at > "2015-06-16")
 # seperte on words
 candidate_words <- candidate_tweets %>%
@@ -405,13 +409,14 @@ datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options =
 
 ### Mediaan sentiment per week
 
-```{r}
+```{r week-median, message=FALSE, warning=FALSE}
 # Create dataset with calculated weeks, means, medians, number of tweet per week
 president_weeks <- president_tweets %>%
   group_by(week = week(created_at)) %>% 
   mutate(mean = mean(sentiment),
          median = median(sentiment),
          median_pos_neg = ifelse(median >= 0, "positive", "negative"),
+         mean_pos_neg = ifelse(mean >= 0, "positive", "negative"),
          nr_of_tweets = n()) %>%
   ungroup()
 
@@ -435,14 +440,46 @@ president_weeks %>%
         plot.title = element_text(size = 18),
         legend.position = c(0.9,0.9),
         legend.background = element_rect()) +
-  labs(title = "Median sentiment tweets per week",
+  labs(title = "Mediaan sentiment tweets per week",
        subtitle = "Vanaf inauguratie.",
        x = NULL,
        y = "Sentiment")  
 ```
 
+[ ] Wanneer op de dag tweet trump?
+[ ] Since "2017-03-25" twittert Trump niet meer met een Android telefoon. Sub set data zonder iPhone van voor die datum.
+[ ] Check mean instead of median
 [ ] Check 'same' analysis with tidytext package.
 
+### Gemiddelde sentiment per week
+
+```{r week-mean, message=FALSE, warning=FALSE}
+# Mean sentiment tweets per week
+president_weeks %>%
+  ggplot(aes(x = week, y = mean)) +
+  geom_line(size = 0.3) +
+  geom_hline(yintercept = 0, 
+             color = "black", 
+             size = 0.5,
+             linetype = "dashed") +  
+  geom_point(aes(size = nr_of_tweets,
+                 colour = mean_pos_neg)) +
+  scale_colour_manual(values = colours_pn,
+                      guide = FALSE) +
+  scale_size_continuous(breaks = seq(0,60,20)) +
+  scale_x_continuous(breaks = seq(0,52,5)) +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = c(0.9,0.9),
+        legend.background = element_rect()) +
+  labs(title = "Gemiddelde sentiment tweets per week",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")  
+  
+```
 
 
 
