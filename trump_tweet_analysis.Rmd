@@ -61,7 +61,7 @@ De dataset bestaat uit 5.411 tweets vanaf 16-06-2015, de dag dat Donald Trump zi
 De dataset is **gedownload op 04-12-2017**, maar kan terzijnertijd met nieuwe data opnieuw gedownload worden en met één druk op de knop door de 'R script' op deze pagina worden gehaald. De dataset bevat de volgende *zeven* variabelen:
 
 * `text`: tekst van de tweets.
-* `created_at`: datum en tijd van tweet in 'GMT'
+* `created_at`: datum en tijd van tweet in "GMT"
 * `source`: op welk apparaat of met welke software de tweet is gepost
 * `retweet_count`: aantal 'retweets'
 * `favourite_count`: aantal 'vind-ik-leuks'
@@ -90,11 +90,12 @@ Taken die nodig zijn om de hoofdvragen te kunnen beantwoorden zijn weer gegeven 
 library(tidyverse)
 library(lubridate)
 library(tidytext)
-library(ggthemes)
 library(DT)
-library(devtools)
 library(sentimentr)
 library(exploratory) # installed package via: devtools::install_github("exploratory-io/exploratory_func")
+library(scales)
+library(hrbrthemes)
+library(cowplot)
 
 # url Trump Twitter Archive
 url <- 'http://www.trumptwitterarchive.com/data/realdonaldtrump/%s.json'
@@ -114,7 +115,7 @@ Het uiteindelijke doel is om een dataset te maken met unieke Trump tweets. Omdat
 Robinson concludeert een jaar later in een follow-up: [Trump's Android and iPhone tweets, one year later](http://varianceexplained.org/r/trump-followup/) dat Trump vrijwel altijd tweet:
 
 * zonder links, hashtags of afbeeldingen
-* afkomstig van een Android toestel (tot hij een iPhone kocht eind maart 2017) of een iPhone
+* afkomstig van een Android toestel (tot hij een iPhone kocht hoogst waarschijnlijk 25-03-2017) of een iPhone.
 
 Wij zullen dat in deze analyse overnemen door de computer op tweets te laten filteren waarvan de `text` hashtags ("#") en/of links ("http") bevatten. Afbeeldingen worden  tegenwoordig niet meer in de text van de tweets meegenomen. Ook nemen we de tweets die vanaf andere toestellen () afkomstig zijn niet mee.
 
@@ -145,6 +146,8 @@ all_trump_tweets <- all_trump_tweets %>%
   select(sentiment, text, everything()) # reorder columns
 # Round numbers on three decimals
 all_trump_tweets$sentiment <- round(all_trump_tweets$sentiment, digits = 3)
+# Convert GMT time to Eastern US time want Trump tweet daarvanuit het meest en originele tijden zijn GMT (Greenwich Time)
+all_trump_tweets$created_at <- with_tz(all_trump_tweets$created_at, tzone = "US/Eastern")
 # Create dataset since inauguration
 president_tweets <- all_trump_tweets %>%
   filter(created_at > "2017-01-20")
@@ -157,7 +160,7 @@ datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), opt
 
 1. [x] Sorteer tweets met meeste Retweets en Favourites
 2. [ ] Hoeveel tweets verstuurd Trump gemiddeld per dag
-3.  [ ] Tidytext Package tekst analyse
+3. [ ] Tidytext Package tekst analyse
     * [x] unnest_tokens, trek tweets uit elkaar, per woord
     * [x] Verwijder stopwoorden, want onzinnig voor analyse
     * [x] Verwijder cijfers
@@ -210,7 +213,7 @@ plot_most_used_words <- most_used_words %>%
   ggplot(aes(x = reorder(word, times_used), times_used)) +
   geom_col(fill = "#03A9F4") +
   coord_flip() +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -226,10 +229,9 @@ plot_most_used_words
 datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageLength = 5)) 
 ```
 
-### Vanaf kandidaatstelling
-Vanaf zijn officiele bekendmaking van kandidaatstelling op 16-06-2015
+Er is ook code om zijn meest gebruikte woorden vanaf zijn kadidaatstelling (16-06-2015) te in te zien, maar wordt niet op deze pagina weergegeven.
 
-```{r analysis-03, message=FALSE, warning=FALSE}
+```{r analysis-03, message=FALSE, warning=FALSE, results='hide'}
 # Create new dataset `candidate`
 candidate_tweets <- all_trump_tweets %>%
   filter(created_at > "2015-06-16")
@@ -256,7 +258,7 @@ plot_most_used_words_candidate <- most_used_words_candidate %>%
     ggplot(aes(x = reorder(word, times_used), times_used)) +
     geom_col(fill = "#03A9F4") +
     coord_flip() +
-    theme_minimal() +
+    theme_ipsum_rc() +
     theme(panel.grid.major.y = element_blank(),
           plot.background = element_blank(),
           plot.title = element_text(size = 18),
@@ -312,7 +314,7 @@ most_used_words %>%
             size = 5) +
   coord_flip() +
   scale_fill_manual(values = colours_pn) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -344,7 +346,7 @@ ggplot(aes(x = pos_neg, fill = pos_neg)) +
             size = 5) +
   coord_flip() +
   scale_fill_manual(values = colours_pn) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -366,7 +368,7 @@ president_tweets %>%
   geom_hline(yintercept = 0, color = "black", size = 0.5,
              linetype = "dashed") +
   scale_colour_manual(values = colours_pn) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -388,7 +390,7 @@ president_tweets %>%
   geom_hline(yintercept = 0, color = "black", size = 0.5,
              linetype = "dashed") +
   scale_colour_manual(values = colours_pn) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -434,7 +436,7 @@ president_weeks %>%
                       guide = FALSE) +
   scale_size_continuous(breaks = seq(0,60,20)) +
   scale_x_continuous(breaks = seq(0,52,5)) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -447,9 +449,7 @@ president_weeks %>%
 ```
 
 [ ] Wanneer op de dag tweet trump?
-[ ] Since "2017-03-25" twittert Trump niet meer met een Android telefoon. Sub set data zonder iPhone van voor die datum.
-[ ] Check mean instead of median
-[ ] Check 'same' analysis with tidytext package.
+[ ] Check sentiment met tidytext package analyse.
 
 ### Gemiddelde sentiment per week
 
@@ -468,7 +468,7 @@ president_weeks %>%
                       guide = FALSE) +
   scale_size_continuous(breaks = seq(0,60,20)) +
   scale_x_continuous(breaks = seq(0,52,5)) +
-  theme_minimal() +
+  theme_ipsum_rc() +
   theme(panel.grid.major.y = element_blank(),
         plot.background = element_blank(),
         plot.title = element_text(size = 18),
@@ -481,5 +481,91 @@ president_weeks %>%
   
 ```
 
+## Wanneer op de dag tweet Trump doorgaans?
+Gekristaliseerd op dagelijkse tweetpatronen.
+
+* Trump vanaf toen hij president was
+* Trump vanaf dat hij zich officieel kandidaat stelde
+* Trump van voor zijn kandidaatstelling
+
+Conversie tijden checken.
+Doordeweeks en weekend scheiden. Per Ditributie.
+
+```{r}
+# Create datframe that groups hours a day and the nr of tweets during his presidency and add percentage column
+tweet_time_president <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at > "2017-01-20") %>% # Consists of 1.235 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plot a bar chart of a day 
+plot_tweet_time_president <- tweet_time_president %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_ipsum_rc() +
+  scale_y_continuous(labels = percent_format(),
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  labs(title = "President Trump",
+       subtitle = "Bestaat uit 1.235 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets") 
+?percent_format
+```
+ 
+```{r}
+# Same calculation than `tweet_time_president` but filterd before inauguration and after announcing official canidatcy
+tweet_time_candidate <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at < "2017-01-20" &            
+           created_at > "2015-06-16") %>% # Consists of 2.493 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plotting same barchart
+plot_tweet_time_candidate <- tweet_time_candidate %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_ipsum_rc() +
+  scale_y_continuous(labels = percent_format(), 
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  labs(title = "Kandidaat Trump",
+       subtitle = "Bestaat uit 2.493 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets")  
+```
+
+```{r}
+# Same calculation but filterd before announcing official canidatcy
+tweet_time_before_politics <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at < "2015-06-16") %>% # Consists of 3.141 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plotting same barchart
+plot_tweet_time_before_politics <- tweet_time_before_politics %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_ipsum_rc() +
+  scale_y_continuous(labels = percent_format(),
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  labs(title = "Trump vóór officiële politieke carriére ",
+       subtitle = "Bestaat uit 3.141 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets") 
+
+plot_grid(plot_tweet_time_president, plot_tweet_time_candidate, plot_tweet_time_before_politics, ncol = 1, align = 'v')
+
+```
 
 
