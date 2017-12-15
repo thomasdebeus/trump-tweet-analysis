@@ -1,0 +1,216 @@
+---
+title: "Sentiment_analysis"
+author: "Thomas de Beus"
+date: "12/15/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Sentimentanalyse
+
+Een sentimentanalyse meet de emotie van een woord. Ik gebruik de [tidytext package](http://tidytextmining.com) (een R library), gemaakt door data scientists *Julia Silge* en *David Robinson*, om verschillende lexicons langs de woorden uit de tweets van Trump te leggen. Via de tidytext package zijn drie 'General-Purpose lexicons' beschikbaar die elk woorden op een andere manier meten.
+
+1. `nrc`: categoriseerd woorden binair (ja/nee) op de sentimenten: *positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise,* en *trust*.
+2. `bing`: categoriseerd woorden binair op *negative* en *positive*.
+3. `AFINN` scoort woorden op positief en negatief tussen -5 en 5.
+
+De sentimentanalyse wordt alleen gedaan met de `president_tweets` en `most_used_words` dataset.
+
+### Woorden gescoord op sentiment
+
+Het is allereerst **goed om te weten dat niet alle woorden een 'sentimentele waarde' hebben**. Heel veel woorden zijn neutraal. Zelfstandige naamwoorden bijvoorbeeld of namen van personen die genoemd worden zijn positief noch negatief. Vanaf nu worden alleen de woorden meegenomen die je kan catagoriseren op negatief en positief of 'heel negatief' (-5) tot 'heel positief' (5).
+
+1. [x] Laat verdeling negatieve en positieve woorden zien met `bing` lexicon
+2. [x] Hoe ziet de negatieve/positieve verdeling er over het hele jaar uit? `AFINN` lexicon. 
+3. [x] Wat is het sentiment (negatief/positief) van de woorden die het meest worden geretweet?
+3. [ ] Dubbel check met `sentimentr` package.
+
+```{r lexicon-analysis, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
+# Colours variable for negative and positive sentiments
+colours_pn <- c("#B10026", "#4575B4")
+
+# First use the 'bing' lexicon to see what the distribution is of negative and positive words
+most_used_words %>% 
+  inner_join(get_sentiments("bing"), by = "word") %>%
+  group_by(sentiment) %>%
+  summarise(count = n(),
+            words = sum(times_used)) %>%
+  mutate(total = count * words) %>%
+  ggplot(aes(x = sentiment, y = total)) +
+  geom_col(aes(fill = sentiment)) +
+  geom_text(aes(label = total), 
+            hjust = 1.2,
+            colour = "white",
+            fontface = "bold",
+            size = 5) +
+  coord_flip() +
+  scale_fill_manual(values = colours_pn) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = 0) +
+  labs(title = "Trump tweet bijna twee keer zoveel negatieve\nals positieve woorden",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Aantal woorden")
+```
+
+### Sentimentr package
+Scoort tweets op sentiment van -1 (heel negatief) tot 1 (heel positief). Een uitleg waarom sentimentr kan je op [hun Github pagina](https://github.com/trinker/sentimentr) lezen. 
+
+Nadat ik alle lexicons geprobeerd heb in combinatie met Trump's tweets heb ik besloten de sentimentr package te gebruiken. De `nrc` vind ik te speculatief want vaak categoriseerd hij één woord dubbel bij verschillende categorieën. De `bing` lexicon scoort binair dus verschil tussen sentiment van tweets kan niet erg goed worden weergegeven. 
+
+```{r sentimentr-viz, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=2.07}
+# Add column with catagories positive and negative column
+president_tweets <- president_tweets %>% mutate(pos_neg = ifelse(president_tweets$sentiment >= 0, "positive", "negative"))
+# Total negative/positve tweets
+president_tweets %>%
+ggplot(aes(x = pos_neg, fill = pos_neg)) +
+  geom_bar(stat = "count") +
+  geom_text(stat = "count", aes(label = ..count.., y = ..count..), 
+            hjust = 1.2,
+            colour = "white",
+            fontface = "bold",
+            size = 5) +
+  coord_flip() +
+  scale_fill_manual(values = colours_pn) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = 0) +
+  labs(title = "Trump verstuurde meer positieve dan negatieve tweets ",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Aantal tweets")
+
+```
+
+```{r sentimentr-viz-02, message=FALSE, warning=FALSE,fig.width=8.2, fig.height=4.07}
+# Sentiments through time
+president_tweets %>%
+  ggplot(aes(x = created_at, y = sentiment)) +
+  geom_line(aes(colour = pos_neg)) +
+  geom_hline(yintercept = 0, color = "black", size = 0.5,
+             linetype = "dashed") +
+  scale_colour_manual(values = colours_pn) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = 0) +
+  labs(title = "Sentiment analyse per tweet",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")
+```
+
+```{r sentimentr-viz-03, message=FALSE, warning=FALSE, fig.width=8.2, fig.height=4.07}
+# Sentiments through time with each individual tweet
+president_tweets %>%
+  ggplot(aes(x = created_at, y = sentiment)) +
+  geom_point(aes(colour = pos_neg),
+             alpha = 0.7) +
+  geom_line(aes(colour = pos_neg),
+            size = 0.1) +
+  geom_hline(yintercept = 0, color = "black", size = 0.5,
+             linetype = "dashed") +
+  scale_colour_manual(values = colours_pn) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = 0) +
+  labs(title = "Sentiment analyse per tweet",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")
+```
+
+
+Filter op negatief of positief sentiment of zoek naar bepaalde woorden in tweets.
+```{r sent-tweets, message=FALSE, warning=FALSE}
+# Dataset sorted by negative sentiment
+# HTML widget
+datatable(head(president_tweets[,c(2,1)], n = nrow(president_tweets)), options = list(pageLength = 5))
+```
+
+### Mediaan sentiment per week
+
+```{r week-median, message=FALSE, warning=FALSE}
+# Create dataset with calculated weeks, means, medians, number of tweet per week
+president_weeks <- president_tweets %>%
+  group_by(week = week(created_at)) %>% 
+  mutate(mean = mean(sentiment),
+         median = median(sentiment),
+         median_pos_neg = ifelse(median >= 0, "positive", "negative"),
+         mean_pos_neg = ifelse(mean >= 0, "positive", "negative"),
+         nr_of_tweets = n()) %>%
+  ungroup()
+
+# Median sentiment tweets per week
+president_weeks %>%
+  ggplot(aes(x = week, y = median)) +
+  geom_line(size = 0.3) +
+  geom_hline(yintercept = 0, 
+             color = "black", 
+             size = 0.5,
+             linetype = "dashed") +  
+  geom_point(aes(size = nr_of_tweets,
+                 colour = median_pos_neg)) +
+  scale_colour_manual(values = colours_pn,
+                      guide = FALSE) +
+  scale_size_continuous(breaks = seq(0,60,20)) +
+  scale_x_continuous(breaks = seq(0,52,5)) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = c(0.9,0.9),
+        legend.background = element_rect()) +
+  labs(title = "Mediaan sentiment tweets per week",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")  
+```
+
+[ ] Wanneer op de dag tweet trump?
+[ ] Check sentiment met tidytext package analyse.
+
+### Gemiddelde sentiment per week
+
+```{r week-mean, message=FALSE, warning=FALSE}
+# Mean sentiment tweets per week
+president_weeks %>%
+  ggplot(aes(x = week, y = mean)) +
+  geom_line(size = 0.3) +
+  geom_hline(yintercept = 0, 
+             color = "black", 
+             size = 0.5,
+             linetype = "dashed") +  
+  geom_point(aes(size = nr_of_tweets,
+                 colour = mean_pos_neg)) +
+  scale_colour_manual(values = colours_pn,
+                      guide = FALSE) +
+  scale_size_continuous(breaks = seq(0,60,20)) +
+  scale_x_continuous(breaks = seq(0,52,5)) +
+  theme_ipsum_rc() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(size = 18),
+        legend.position = c(0.9,0.9),
+        legend.background = element_rect()) +
+  labs(title = "Gemiddelde sentiment tweets per week",
+       subtitle = "Vanaf inauguratie.",
+       x = NULL,
+       y = "Sentiment")  
+  
+```
