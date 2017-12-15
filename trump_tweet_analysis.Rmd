@@ -272,14 +272,9 @@ plot_most_used_words_candidate <- most_used_words_candidate %>%
          subtitle = "Vanaf officiële kandidaatstelling op 16-06-2015.",
          x = NULL, 
          y = "Aantal keer gebruikt")
-
-# Plot
-plot_most_used_words_candidate
-# Html widget interactive table in rmarkdown report
-datatable(head(most_used_words_candidate, n = nrow(most_used_words_candidate)), options = list(pageLength = 5))
 ```
 
-## Wanneer op de dag tweet Trump doorgaans?
+## Wanneer op de dag verstuurt Trump zijn tweets?
 
 * Trump vanaf toen hij president was
 * Trump vanaf dat hij zich officieel kandidaat stelde
@@ -315,7 +310,7 @@ weekday_tweets %>%
 ```
 
 
-```{r, when-tweeted, message=FALSE, warning=FALSE, fig.height=13.3}
+```{r, when-tweeted, message=FALSE, warning=FALSE, fig.height=11}
 # -------------------President
 
 # Create datframe that groups hours a day and the nr of tweets during his presidency and add percentage column
