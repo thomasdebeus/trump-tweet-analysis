@@ -68,23 +68,6 @@ De dataset is **gedownload op 04-12-2017**, maar kan terzijnertijd met nieuwe da
 * `is_retweet`: of de tweet een retweet is of niet
 * `id_str`: uniek karakter van tweet 
 
-## Legenda
-Taken die nodig zijn om de hoofdvragen te kunnen beantwoorden zijn weer gegeven als: **1. [x]**. Als je rechts op de grijze code knop drukt komt deze tevoorschijn. De code is ook gedocumenteerd, dat wil zeggen dat alle code met comments uitgelegd word wat het doet.
-
-1. [x] Vind alternatief voor Twitter API want limiet van 3400 tweets en er zit een bug in de twitteR package waardoor incomplete data wordt gegenereerd.
-2. [x] Tweet data downloaden vanaf 2015-06-16 (Trump Twitter Archive). De dag dat Trump zich officieel kandidaat stelde voor de republikeinen.
-
-# Data voorbereiden
-
-1. [x] Variabelen in juiste type converteren
-2. [x] Filter (subset) data op tweets vanaf Android en iPhone, omdat Trump als persoon hier vandaan tweet
-3. [x] Filter data op alleen originele tweets, dus geen Retweets
-4. [x] Filter data op de nodige variabelen (kolommen)
-5. [x] Filter op daadwerkelijk Trump’s tweets
-    * [x] Filter op tweets zonder hashtags, afbeeldingen en links. 
-        * Een solide theorie is dat Trump tweet vanaf een Android toestel. Echter sinds Maart 2017 is Trump ook een iPhone gaan gebruiken. Inititief Did Trump Tweet It? heeft machine learning toegepast op de Android tweets. Zo concludeert data scientist David Robinson dat Trump bijna nooit hashtags, afbeeldingen of links gebruikt.
-6. [x] Maak nieuwe dataset (store in variable) vanaf inauguratie 2017-01-20
-
 ```{r acquire, message=FALSE, warning=FALSE, results='hide'}
 # Loading the used libraries
 library(tidyverse)
@@ -96,6 +79,7 @@ library(exploratory) # installed package via: devtools::install_github("explorat
 library(scales)
 library(hrbrthemes)
 library(cowplot)
+library(rvest)
 
 # url Trump Twitter Archive
 url <- 'http://www.trumptwitterarchive.com/data/realdonaldtrump/%s.json'
@@ -393,6 +377,12 @@ plot_tweet_time_before_politics <- tweet_time_before_politics %>%
 # Place al three plot's in grid
 plot_grid(plot_tweet_time_president, plot_tweet_time_candidate, plot_tweet_time_before_politics, ncol = 1, align = 'v')
 ```
+
+
+
+
+
+
 
 
 
