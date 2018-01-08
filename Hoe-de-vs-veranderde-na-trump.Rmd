@@ -1,0 +1,30 @@
+---
+title: "Trump's Tweetanalyse"
+author: "Thomas de Beus"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    css: style.css
+    toc: TRUE
+    toc_depth: 5
+    theme: journal
+    code_folding: hide
+    number_sections: true
+---
+<style>
+  #TOC {
+    position: fixed;
+    left: 0;
+    top: 10;
+    width: 350px;
+    height: 100%;
+    overflow:auto;
+  }
+</style>
+
+![](http://i.cdn.cnn.com/cnn/interactive/2017/politics/trump-tweets/media/trump-tweets-hdr-02.jpg)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
