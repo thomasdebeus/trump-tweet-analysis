@@ -25,40 +25,30 @@ output:
 ![](http://i.cdn.cnn.com/cnn/interactive/2017/politics/trump-tweets/media/trump-tweets-hdr-02.jpg)
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
 # Waarom een tweetanalyse?
 
-Een eerste jaar Donald J. Trump in het witte huis. Misschien wel mede mogelijk gemaakt door zijn karakteristieke uitlatingen op Twitter. In de aanloop van de verkiezingen zijn de tweets van de huidige president van de V.S. een krachtig middel gebleken. Hij bereikt zijn miljoenen kiezers zonder de traditionele media nodig te hebben. Trump zelf verschijnt dan ook relatief weinig voor de camera, in kranten of andere news outlets. 
+Een eerste jaar Donald J. Trump in het witte huis. Misschien wel mede mogelijk gemaakt door zijn karakteristieke uitlatingen op Twitter. In de aanloop van de verkiezingen zijn de tweets van de huidige president van de V.S. een krachtig middel gebleken. En nog steeds bereikt hij zijn miljoenen kiezers zonder de traditionele media nodig te hebben. Trump zelf verschijnt dan ook relatief weinig voor de camera, in kranten of andere news sites. 
 
 Om beter vat te krijgen op hoe Trump zijn favoriete medium inzet nemen we zijn tweets onder de loep. **Doormiddel van een tekstanalyse hopen we een aantal vragen te beantwoorden**. 
 
-Simpele vragen zoals:
+Vragen zoals:
 
+* Welke Tweets zijn daadwerkelijk van Trump afkomstig?
 * Hoeveel tweets stuurt Trump gemiddeld per dag?
 * Wanneer op de dag tweet hij met name? s'Avonds, s'ochtends of s'middags?
 * Welke tweets worden het meest geretweet en geliked?
 * Welke woorden gebruikt Trump het meest?
 
-Maar ook de moeilijke vragen zoals:
-
-* Welke Tweets zijn daadwerkelijk van Trump afkomstig?
-* Zijn zijn tweets positief, neutraal of negatief van aard?
-* Welke emoties kleuren zijn taalgebruik?
-* Wanneer lopen de spanningen hoog op?
-
-Taal is voor een computer moeilijk te vatten. Taal heeft duizenden jaren ontwikkeling meegemaakt en zodoende bereikt het een hoog abstractie niveau. Deze analyse kan dan ook niet 'waterdicht' zijn alleen al om het feit dat iedereen een andere interpretatie heeft van taal. Toch gaan we dit proberen. 
-
-*Deze pagina wordt geupdate als er weer nieuwe inzichten in de analyse naar voren komen*.
-
 # Data verkrijgen
 
-De geïmporteerde dataset is van [Trump Twitter Archive](http://www.trumptwitterarchive.com/archive). Dit is een betere bron dan de Twitter API welke niet altijd alle tweets geeft. Bovendien slaat de Trump Twitter Archive ook verwijderde tweets op. 
+De geïmporteerde dataset is van [Trump Twitter Archive](http://www.trumptwitterarchive.com/archive). Dit is een betere bron dan de Twitter API welke niet altijd alle tweets geeft. Bovendien slaat de Trump Twitter Archive ook de meeste verwijderde tweets op. 
 
-De dataset bestaat uit 5.411 tweets vanaf 16-06-2015, de dag dat Donald Trump zich officieel beschiktbaar stelde als kandidaat voor de Republiekeinen.  
+Als we alle tweets filteren op diegene waarvan wij denken dat ze afkomstig zijn van Trump bestaat de dataset uit bijna **7000** tweets vanaf 05-02-2013, vijf en half jaar geleden.  
 
-De dataset is **gedownload op 04-12-2017**, maar kan terzijnertijd met nieuwe data opnieuw gedownload worden en met één druk op de knop door de 'R script' op deze pagina worden gehaald. De dataset bevat de volgende *zeven* variabelen:
+Trump Twitter Archive word elk uur geupdate. Als wij de code in onder de R-script op deze pagina 'runnen' dan worden alle data tabellen en grafieken als vanzelf geupdate. De twitter dataset bevat de volgende *zeven* variabelen:
 
 * `text`: tekst van de tweets.
 * `created_at`: datum en tijd van tweet in "GMT"
@@ -68,18 +58,17 @@ De dataset is **gedownload op 04-12-2017**, maar kan terzijnertijd met nieuwe da
 * `is_retweet`: of de tweet een retweet is of niet
 * `id_str`: uniek karakter van tweet 
 
-```{r acquire, message=FALSE, warning=FALSE, results='hide'}
+```{r acquire, results='hide'}
 # Loading the used libraries
 library(tidyverse)
 library(lubridate)
 library(tidytext)
 library(DT)
-library(sentimentr)
-library(exploratory) # installed package via: devtools::install_github("exploratory-io/exploratory_func")
 library(scales)
 library(hrbrthemes)
 library(cowplot)
 library(rvest)
+library(ggthemes)
 
 # url Trump Twitter Archive
 url <- 'http://www.trumptwitterarchive.com/data/realdonaldtrump/%s.json'
@@ -94,18 +83,18 @@ original_df <- map(2009:2017, ~sprintf(url, .x)) %>%
 
 ## Klaarmaken voor analyse: Wanneer zijn de tweets afkomstig van Trump zelf?
 
-Het uiteindelijke doel is om een dataset te maken met unieke Trump tweets. Omdat data scientist David Robinson in zijn analyse, [Text analysis of Trump's tweets confirms he writes only the (angrier) Android half](http://varianceexplained.org/r/trump-tweets/), er vrijwel zeker is dat Trump destijds een Android toestel gebruikte [passen anderen machine learning toe](http://didtrumptweetit.com/).
+Het uiteindelijke doel is om een dataset te maken met unieke Trump tweets. Omdat data scientist David Robinson in zijn analyse, [Text analysis of Trump's tweets confirms he writes only the (angrier) Android half](http://varianceexplained.org/r/trump-tweets/), er vrijwel zeker van is dat Trump destijds een Android toestel gebruikte [passen anderen machine learning toe](http://didtrumptweetit.com/).
 
 Robinson concludeert een jaar later in een follow-up: [Trump's Android and iPhone tweets, one year later](http://varianceexplained.org/r/trump-followup/) dat Trump vrijwel altijd tweet:
 
 * zonder links, hashtags of afbeeldingen
-* afkomstig van een Android toestel (tot hij een iPhone kocht hoogst waarschijnlijk 25-03-2017) of een iPhone.
+* afkomstig van een Android toestel, tot hij een iPhone kocht, hoogst waarschijnlijk rond 25-03-2017.
 
-Wij zullen dat in deze analyse overnemen door de computer op tweets te laten filteren waarvan de `text` hashtags ("#") en/of links ("http") bevatten. Afbeeldingen worden  tegenwoordig niet meer in de text van de tweets meegenomen. Ook nemen we de tweets die vanaf andere toestellen () afkomstig zijn niet mee.
+Wij zullen dat in deze analyse overnemen door de computer op tweets te laten filteren waarvan de `text` hashtags ("#") en/of links ("http") bevatten. Afbeeldingen worden tegenwoordig niet meer in de text van de tweets meegenomen. Ook nemen we de tweets die vanaf andere toestellen afkomstig zijn niet mee.
 
-Het spreekt voor zich dat we alleen originele retweets meenemen dus geen retweets. Bovendien zullen gelijk al filteren op de tweets die vanaf zijn inauguratie zijn verstuurd (20-101-2017).
+Het spreekt voor zich dat we alleen originele tweets meenemen dus geen retweets. Bovendien zullen gelijk al filteren op de tweets die vanaf zijn inauguratie zijn verstuurd (20-101-2017).
 
-```{r prepare, message=FALSE, warning=FALSE, results='hide'}
+```{r prepare, results='hide'}
 # Subset data on high probability that Trump himself is actually tweeting and add
 all_trump_tweets <- original_df %>%
   rename(retweets = retweet_count,
@@ -118,50 +107,34 @@ all_trump_tweets <- original_df %>%
   select(ID, text, created_at, retweets, favorites, source)
 # Filter out all iPhone tweets before 25-03-2017
 all_trump_tweets <- all_trump_tweets %>%
-  filter((created_at < "2017-03-25" & source != "Twitter for iPhone") | created_at >= "2017-03-25") %>%
+  filter((created_at < "2017-03-15" & source != "Twitter for iPhone") | created_at >= "2017-03-15") %>%
   arrange(desc(created_at))
 # Get rid of emoji characters R doesn't like them
 all_trump_tweets$text <- gsub("[^\x01-\x7F]", "", all_trump_tweets$text)
-# The sentimentr package advices to first create sentences (creates lists of sentences per tweet in text column) for faster analysis.
-all_trump_tweets$text <- get_sentences(all_trump_tweets$text)
-# Add column and let the sentimentr package calculate sentiments per tweet.
-all_trump_tweets <- all_trump_tweets %>%
-  mutate(sentiment = get_sentiment(text)) %>%
-  select(sentiment, text, everything()) # reorder columns
-# Round numbers on three decimals
-all_trump_tweets$sentiment <- round(all_trump_tweets$sentiment, digits = 3)
+# Remove redundant "amp"
+all_trump_tweets$text <- gsub("amp", "", all_trump_tweets$text)
+# Remove numbers
+all_trump_tweets$text <- gsub("[0-9]+", "", all_trump_tweets$text)
 # Convert GMT time to Eastern US time want Trump tweet daarvanuit het meest en originele tijden zijn GMT (Greenwich Time)
 all_trump_tweets$created_at <- with_tz(all_trump_tweets$created_at, tzone = "US/Eastern")
 # Create dataset since inauguration
 president_tweets <- all_trump_tweets %>%
   filter(created_at > "2017-01-20")
+# Create dataset since inauguration
+candidate_tweets <- all_trump_tweets %>%
+  filter(created_at > "2015-06-16")
 # Html widget interactive table in rmarkdown report with only the four useful columns
 datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), options = list(pageLength = 5))
 ```
 
-
 # Data analyseren
 
-1. [x] Sorteer tweets met meeste Retweets en Favourites
-2. [ ] Hoeveel tweets verstuurd Trump gemiddeld per dag
-3. [ ] Tidytext Package tekst analyse
-    * [x] unnest_tokens, trek tweets uit elkaar, per woord
-    * [x] Verwijder stopwoorden, want onzinnig voor analyse
-    * [x] Verwijder cijfers
-    * [x] Meest gebruikte woorden
-    * [x] Woorden met de meeste retweets en favourites
-    * [x] Sentiment analyse per woord
-    * [x] Sentiment analyse hele tweet. Visuals per tweet en mediaan sentiment per week.
-
-## Tweets met meeste retweets
-Of filter op favorites.
-
-```{r}
+```{r tweet-analysis-top-10}
 # Top 10 retweets
 most_rt <- president_tweets %>%
   arrange(desc(retweets))
 # Html widget interactive table in rmarkdown report
-datatable(head(most_rt[,c(2,5,6,1)], n = nrow(most_rt)), options = list(pageLength = 5)) 
+datatable(head(most_rt[,c(2, 4, 5, 3)], n = nrow(most_rt)), options = list(pageLength = 5)) 
 ```
 
 ## Text analyse per woord
@@ -169,16 +142,14 @@ Welke woorden gebruikt Trump het meest in zijn tweets?
 
 ### Vanaf Inauguratie
 
-```{r analysis-02, message=FALSE, warning=FALSE}
+```{r tweet-analysis-per-word}
 # Create new dataset `tweets_fy_words` (tweets first year words)
 tweets_words <- president_tweets %>%
   unnest(text) %>% # Unnest gets rid of lists in text column
   unnest_tokens(word, text)
 # Remove stop words and numbers, which aren't useful
 tweets_words <- tweets_words %>%
-  anti_join(stop_words) %>%
-  filter(!grepl("[0-9]+", word),
-         word != "amp") # Because in text is 'space' coded as "amp&"
+  anti_join(stop_words) # Because in text is 'space' coded as "amp&"
 
 # Sort on most used words
 most_used_words <- tweets_words %>% 
@@ -216,46 +187,41 @@ plot_most_used_words
 datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageLength = 5)) 
 ```
 
-Er is ook code om zijn meest gebruikte woorden vanaf zijn kadidaatstelling (16-06-2015) te in te zien, maar wordt niet op deze pagina weergegeven.
+## Welke woordparen gebruikt Trump het vaakst?
 
-```{r analysis-03, message=FALSE, warning=FALSE, results='hide'}
-# Create new dataset `candidate`
-candidate_tweets <- all_trump_tweets %>%
-  filter(created_at > "2015-06-16")
-# seperte on words
-candidate_words <- candidate_tweets %>%
-  unnest(text) %>% # Unnest gets rid of lists in text column
-  unnest_tokens(word, text)
-# Remove stopwords, which are not useful
-candidate_words <- candidate_words %>%
-  anti_join(stop_words) %>%
-  filter(!grepl("[0-9]+", word),
-         word != "amp") # Because in text is 'space' coded as "amp&"
-# Sort on most used words
-most_used_words_candidate <- candidate_words %>% 
-  count(word, sort = TRUE) %>%
-  mutate(times_used = n,
-         word = reorder(word, times_used)) %>%
-  select(word, times_used)
+```{r tweet-analysis-word-pairs}
+candidate_bigrams <- candidate_tweets %>%
+  unnest_tokens(bigram , text, token = "ngrams", n = 2) %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word) %>%
+  unite(bigram, word1, word2, sep = " ")
 
-# Plot in bar chart
-plot_most_used_words_candidate <- most_used_words_candidate %>%
-  arrange(desc(times_used)) %>%
-  top_n(20) %>%
-    ggplot(aes(x = reorder(word, times_used), times_used)) +
-    geom_col(fill = "#03A9F4") +
-    coord_flip() +
-    theme_minimal() +
-    theme(panel.grid.major.y = element_blank(),
-          plot.background = element_blank(),
-          panel.grid.major.x = element_line(colour = "#AFACAC",
-                                            linetype = "dotted"),
-          plot.title = element_text(face = "bold",
+president_bigrams <- candidate_bigrams %>%
+  filter(created_at > "2017-01-20") %>%
+  group_by(bigram) %>%
+  mutate(count = n())
+
+head(president_bigrams %>%
+  mutate(count = n()) %>%
+  distinct(bigram, count) %>%
+    arrange(desc(count)),20) %>%
+  ggplot(aes(x = reorder(bigram, count), count)) +
+    geom_segment(aes(x = reorder(bigram, count), xend = bigram, y = 0,yend = count),
+               colour = "#737373") +
+  geom_point(colour = "#03A9F4",
+             size = 3) +
+  coord_flip() +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(face = "bold",
                                   size = 18)) +
-    labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
-         subtitle = "Vanaf officiële kandidaatstelling op 16-06-2015.",
-         x = NULL, 
-         y = "Aantal keer gebruikt")
+  labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+       subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
+       x = NULL, 
+       y = "Aantal keer gebruikt")
+  
 ```
 
 ## Wanneer op de dag verstuurt Trump zijn tweets?
@@ -264,7 +230,7 @@ plot_most_used_words_candidate <- most_used_words_candidate %>%
 * Trump vanaf dat hij zich officieel kandidaat stelde
 * Trump van vóór zijn kandidaatstelling
 
-```{r tweeted-per-weekday, message=FALSE, warning=FALSE, fig.height=5}
+```{r tweet-analysis-when-1, fig.height=5}
 # Create dataframe with weekdays
 weekday_tweets <- president_tweets %>%
   mutate(hour_of_day = hour(created_at),
@@ -294,7 +260,7 @@ weekday_tweets %>%
 ```
 
 
-```{r, when-tweeted, message=FALSE, warning=FALSE, fig.height=11}
+```{r, tweet-analysis-when-2, fig.height=11}
 # -------------------President
 
 # Create datframe that groups hours a day and the nr of tweets during his presidency and add percentage column
@@ -378,13 +344,153 @@ plot_tweet_time_before_politics <- tweet_time_before_politics %>%
 plot_grid(plot_tweet_time_president, plot_tweet_time_candidate, plot_tweet_time_before_politics, ncol = 1, align = 'v')
 ```
 
+## Wanneer heeft Trump welke woordparen gebruikt
+
+```{r tweet-analysis-bubble-1, fig.height = 2.12}
+# Bubble time line
+bubble_plot_1 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         grepl("fake news|fake media", bigram, ignore.case = TRUE)) %>%
+  ggplot(aes(x = created_at, y = 0)) +
+  geom_point(aes(size = retweets),
+             alpha = 0.1,
+             colour = "#B71C1C") +
+  scale_size(range = c(0,15)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump 'Fake News/Media' in zijn tweets gebruikt",
+       x = "",
+       y = "")
+
+bubble_plot_1
+```
 
 
+```{r tweet-analysis-barcode-1, fig.height = 3}
+# Barcode with fixed size
+barcode_1 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "tax cuts")) %>%
+  ggplot(aes(x = created_at, y = 0, colour = bigram)) +
+  geom_point(shape = 124,
+             size = 15,
+             alpha = 0.5) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  theme_minimal() +
+  theme(plot.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump 'Fake News' en 'Tax Cuts' in zijn tweets gebruikte",
+       x = "",
+       y = "")
+
+barcode_1
+```
 
 
+```{r tweet-analysis-barcode-2, fig.width=5.3, fig.height=9.3}
+plot_colours3 <- c("#b7002e", "#005cb7", "#baa400")
+
+# Barcode where size is according number of retweets
+barcode_2 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts")) %>%
+  ggplot(aes(x = created_at, y = 0, colour = bigram, size = retweets)) +
+  geom_point(shape = 95,
+             alpha = 0.4) +
+  scale_size(range = c(1, 35)) +
+  scale_x_datetime(date_labels = "%b",
+                   date_breaks = "1 month") +
+  scale_colour_manual(values = plot_colours3) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(vjust = -2.5),
+        panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte\nwoordparen in zijn tweets gebruikt",
+       subtitle = "Elk streepje is een tweet. De groter het streepje\ndes te meer retweets.",
+       x = "",
+       y = "")
+
+barcode_2
+```
+
+```{r tweet-analysis-barcode-3, fig.height=4.2}
+plot_colours4 <- c("#ba001f", "#001fb7", "#b79900", "#00b799")
+
+# Barcode where size is according to number of retweets and multiple words on their own line
+barcode_3 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts",
+                       "failing nytimes")) %>%
+  ggplot(aes(x = created_at, y = bigram, colour = bigram, size = retweets)) +
+  geom_point(shape = 124,
+             alpha = 0.6) +
+  scale_size(range = c(1, 10)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  scale_colour_manual(values = plot_colours4) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte woordparen in zijn tweets gebruikt",
+       subtitle = "Elk streepje is een tweet. De groter het streepje des te meer retweets.",
+       x = "",
+       y = "")
+
+barcode_3
+```
 
 
+```{r tweet-analysis-bubble-2, fig.height=4.2}
+plot_colours4 <- c("#001fb7",  "#ba001f", "#b79900", "#00b799")
 
-
-
-
+# Bubble plot where size is according to number of retweets and multiple words on their own line
+candidate_bigrams %>%
+  mutate(bigram = as.factor(bigram)) %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts",
+                       "failing nytimes")) %>%
+  ggplot(aes(x = created_at, y = bigram, fill = bigram, size = retweets)) +
+  geom_point(shape = 21,
+             alpha = 0.3,
+             stroke = F) +
+  scale_size(range = c(1, 12)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  scale_fill_manual(values = plot_colours4) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte woordparen in zijn tweets gebruikt",
+       subtitle = "Elke bubbel is een tweet. De groter de bubbel des te meer retweets.",
+       x = "",
+       y = "")
+```
