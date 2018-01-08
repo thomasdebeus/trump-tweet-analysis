@@ -28,3 +28,155 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
+# Approval rating
+
+## Scrapen van data
+
+Bron [Gallup's interactive graphic](http://news.gallup.com/interactives/185273/presidential-job-approval-center.aspx)
+
+**Goal of script**: Fetch Obama's and Trump's 'Presidents approval rating' data in JSON format, from [Gallup's interactive graphic](http://news.gallup.com/interactives/185273/presidential-job-approval-center.aspx) and convert to tidy csv dataframe.
+
+```{r scrapen, warning=FALSE, message=FALSE}
+# Loading libraries
+library(jsonlite)
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+library(scales)
+library(hrbrthemes)
+library(DT)
+
+# Fetch data from Gallup's JSON pages behind their interactive approval rating graphic
+trump_json <- fromJSON(txt = "http://news.gallup.com/wwwv7interactives/json/CURRENTPRESWEEKLY/codename.aspx?", 
+                       flatten = TRUE)
+obama_json <- fromJSON(txt = "http://news.gallup.com/wwwv7interactives/json/OBAMAEXPANDED/codename.aspx?", 
+                       flatten = TRUE)
+old_presidents_json <- fromJSON(txt = "http://news.gallup.com/wwwv7interactives/json/ALLPRESIDENTS/codename.aspx?", 
+                                flatten = TRUE)
+# Locate the wanted dataframe and convert to tidy dataframe
+trump_df <- as.tibble(trump_json$CurrentPresident$data$date)
+obama_df <- as.tibble(obama_json$ExpandedDemographics$data$date)
+old_presidents_df <- as.tibble(old_presidents_json$AllPresidents$HistoricalPresident)
+```
+
+## Trump dataset
+
+```{r dataset, warning=FALSE, message=FALSE}
+# Tidy data: each variable its own column
+trump_df <- trump_df %>%
+  gather(key = "type", value = "rating", 4:47) %>%
+  mutate(president = "Trump") %>%
+  select(6, everything())
+# Convert to correct data classes
+trump_df$n <- as.numeric(trump_df$n)
+trump_df$rating <- as.numeric(trump_df$rating)
+trump_df$endDate <- date(trump_df$endDate)
+
+# Uncomment and running the following line and you'll save a neat csv file in your current directory
+# write.csv(trump_df, "trump_approval_rating.csv")
+datatable(head(trump_df, n = nrow(trump_df)), options = list(pageLength = 5))
+```
+
+
+```{r plot-reps-and-dems, warning=FALSE, message=FALSE}
+trump_df %>% 
+  filter(type %in% c("Party.R", "Party.D", "Overall.A")) %>% # filter on GOP's, Dem's and everyone
+  ggplot(aes(x = endDate, y = rating)) +
+  geom_line(aes(colour = type),
+            size = 1) +
+  geom_text(aes(label = rating, colour = type),
+            data = filter(trump_df, endDate == "2017-12-10" &
+                                    (type == "Party.R" | 
+                                     type == "Party.D" |
+                                     type == "Overall.A")),
+            vjust = -1.5,
+            fontface = 2) +
+  annotate(geom = "text", x = as.Date("2017-02-01"), hjust = 0, y= 78, label = "Republikeinen", colour = "#E31A1C", fontface = 2) +
+  annotate(geom = "text", x = as.Date("2017-02-01"), hjust = 0, y= 47, label = "Totaal", colour = "grey", fontface = 2) +
+  annotate(geom = "text", x = as.Date("2017-02-01"), hjust = 0, y= 15, label = "Democraten", colour = "#1F78B4", fontface = 2) +
+  scale_x_date(breaks = date_breaks("1 month"),
+               labels = date_format("%b")) +
+  scale_colour_manual(values = c("grey", "#1F78B4", "#E31A1C"),
+                      labels = c("Iedereen", "Democraten", "Republikeinen")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Trump's eerste jaar approval ratings",
+       y = "Approval rating %") 
+```
+
+## Obama dataset
+
+```{r plot-tidy-obama, warning=FALSE, message=FALSE}
+# Tidy data: each variable its own column
+obama_df <- obama_df %>%
+  gather(key = "type", value = "rating", 4:47) %>%
+  mutate(president = "Obama") %>%
+  select(6, everything())
+# Convert to correct data classes
+obama_df$n <- as.numeric(obama_df$n)
+obama_df$rating <- as.numeric(obama_df$rating)
+obama_df$endDate <- date(obama_df$endDate)
+# Uncomment and running the following line and you'll save a neat csv file in your current directory
+# write.csv(obama_df, "trump_approval_rating.csv")
+# Pasting the two together
+rating_comparison <- rbind(trump_df, obama_df)
+
+datatable(head(rating_comparison, n = nrow(trump_df)), options = list(pageLength = 5))
+```
+
+```{r plot-trump-and-obama, warning=FALSE, message=FALSE}
+# Plot
+rating_comparison %>% 
+  filter(type == "Overall.A") %>%
+  group_by(president) %>% 
+  mutate(Day = as.numeric(endDate - min(endDate))) %>% 
+  ungroup() %>% 
+  filter(Day <= 365) %>% 
+  ggplot(aes(Day, rating)) + 
+    geom_line(aes(color = president),
+              size = 1.5) +
+  theme_minimal() +
+  theme(legend.position = 0) +
+  annotate(geom = "text", x = 50, y= 32, label = "Trump", colour = "#E31A1C", fontface = 2) +
+  annotate(geom = "text", x = 50, y= 70, label = "Obama", colour = "#1F78B4", fontface = 2) +
+  ylim(0,100) +
+  scale_colour_manual(values = c("#1F78B4", "#E31A1C")) +
+  labs(title = "Approval rating Obama vs Trump eerste jaar",
+       x = "Dagen in eerste jaar",
+       y = "Rating in %")
+```
+
+```{r plot-etnicities, warning=FALSE, message=FALSE, fig.width=4.13, fig.height=4.13}
+# Difference obama en Trump
+rating_comparison %>%
+  filter(type %in% c("Race.W", "Race.N")) %>%
+  ggplot(aes(x = endDate, y = rating, colour = type)) +
+  geom_line() +
+  scale_colour_manual(values = c("black", "#56B4E9")) +
+  theme_minimal() +
+  theme(legend.position = 0) +
+  annotate(geom = "text", x = as.Date("2010-01-01"), hjust = 0, y= 80, label = "Niet-Blank", colour = "black", fontface = 2) +
+  annotate(geom = "text", x = as.Date("2010-01-01"), hjust = 0, y= 48, label = "Blank", colour = "#56B4E9", fontface = 2) +
+  labs(title = "Approval rating onder 'niet blanken'\nmaakt een vrije val sinds Trump")
+```
+
+```{r plot-etnicities-2, warning=FALSE, message=FALSE, fig.width=5.9, fig.height=4.9}
+# Three different etnicities during Trump
+rating_comparison %>%
+  filter(type %in% c("Race.W", "Race.B", "Race.H") &
+           endDate > "2016-01-25") %>%
+  ggplot(aes(x = endDate, y = rating, colour = type)) +
+  geom_line(size = 1.2) +
+  scale_colour_colorblind(labels = c("Afro-Amerikaans", "Hispanic", "Blank"),
+                          name = "Etniciteit") +
+  scale_x_date(date_breaks = "1 years", date_labels = "%Y") +
+  theme_minimal() +
+  theme(legend.position = 0) +
+  annotate(geom = "text", x = as.Date("2016-02-01"), hjust = 0, y= 79, label = "Afro-Amerikaans", colour = "black") +
+  annotate(geom = "text", x = as.Date("2016-02-01"), hjust = 0, y= 58, label = "Hispanic", colour = "#E69F00") +
+  annotate(geom = "text", x = as.Date("2016-02-01"), hjust = 0, y= 32, label = "Blank", colour = "#56B4E9") +
+  annotate(geom = "label", x = as.Date("2017-02-15"), hjust = 0, y= 80, label = "20 januari:\nTrump's inauguratie\nzorgt voor vrije val\nin goedkeuringscijfer\npresident bij niet-blanken", size = 3) +
+  labs(title = "Approval rating onder 'niet blanken' maakt\neen vrije val sinds Trump",
+       subtitle = "Uitgesplitst op etniciteit.",
+       x = "")
+```
