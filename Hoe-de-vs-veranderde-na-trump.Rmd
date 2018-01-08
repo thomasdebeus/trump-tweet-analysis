@@ -28,6 +28,17 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 ```
 
+```{r}
+# Loading libraries
+library(jsonlite)
+library(tidyverse)
+library(lubridate)
+library(ggthemes)
+library(scales)
+library(hrbrthemes)
+library(DT)
+```
+
 # Approval rating
 
 ## Scrapen van data
@@ -37,15 +48,6 @@ Bron [Gallup's interactive graphic](http://news.gallup.com/interactives/185273/p
 **Goal of script**: Fetch Obama's and Trump's 'Presidents approval rating' data in JSON format, from [Gallup's interactive graphic](http://news.gallup.com/interactives/185273/presidential-job-approval-center.aspx) and convert to tidy csv dataframe.
 
 ```{r scrapen, warning=FALSE, message=FALSE}
-# Loading libraries
-library(jsonlite)
-library(tidyverse)
-library(lubridate)
-library(ggthemes)
-library(scales)
-library(hrbrthemes)
-library(DT)
-
 # Fetch data from Gallup's JSON pages behind their interactive approval rating graphic
 trump_json <- fromJSON(txt = "http://news.gallup.com/wwwv7interactives/json/CURRENTPRESWEEKLY/codename.aspx?", 
                        flatten = TRUE)
