@@ -575,7 +575,7 @@ bar_chart_with_total <- summary_count %>%
 plot_grid(bar_chart, bar_chart_with_total, ncol = 1)
 ```
 
-# Vertrouwen van de wereld in President US
+# Vertrouwen van de wereld in President VS
 
 Cijfers van [pew research center](http://www.pewglobal.org/2017/06/26/u-s-image-suffers-as-publics-around-world-question-trumps-leadership/). Geïmporteerd vanaf [google sheets](https://docs.google.com/spreadsheets/d/15YgKHeXNY3eTRODpQib71S85XlOgu8SnCBfWIyeM2j4/edit#gid=1168275672). Originele data in [pdf report](http://assets.pewresearch.org/wp-content/uploads/sites/2/2017/06/26170737/PG_2017.06.26_US-Image-Report_Appendix-A-Detailed-Tables.pdf).
 

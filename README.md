@@ -1,3 +1,12 @@
-# Trump's Tweetanalyse
+# Hoe de VS veranderde na een jaar Trump
 
-Ga direct naar [Trump's Tweetanalyse rapport](https://rawgit.com/thomasdebeus/trump-tweet-analysis/master/trump_tweet_analysis.html)
+Ga direct naar [Trump's Dashboard](https://rawgit.com/thomasdebeus/trump-tweet-analysis/master/trump_tweet_analysis.html) waar gescrapte datasets tabellen en grafieken genereren. 
+
+Met de onderwerpen:
+
+1. Approval rating
+2. Economie
+3. Inslossen van campagne beloftes
+4. Vertrouwen van de wereld in President VS
+5. Trump's tweetgewoonten
+6. Een fanatieke golfer
