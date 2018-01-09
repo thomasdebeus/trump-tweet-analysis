@@ -1,6 +1,6 @@
 # Hoe de VS veranderde na een jaar Trump
 
-Ga direct naar [Trump's Dashboard](https://rawgit.com/thomasdebeus/trump-tweet-analysis/master/trump_tweet_analysis.html) waar gescrapte datasets tabellen en grafieken genereren. 
+Ga direct naar [Trump's Dashboard](https://rawgit.com/thomasdebeus/trump-tweet-analysis/master/Hoe-de-vs-veranderde-na-trump.html) waar gescrapte datasets tabellen en grafieken genereren. 
 
 Met de onderwerpen:
 
