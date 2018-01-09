@@ -22,7 +22,7 @@ output:
   }
 </style>
 
-![](http://i.cdn.cnn.com/cnn/interactive/2017/politics/trump-tweets/media/trump-tweets-hdr-02.jpg)
+![](http://www.dw.com/image/39013947_303.jpg)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
@@ -37,6 +37,15 @@ library(ggthemes)
 library(scales)
 library(hrbrthemes)
 library(DT)
+library(stringr)
+library(qdap)
+library(gridExtra)
+library(rvest)
+library(xlsx)
+library(waffle)
+library(cowplot)
+library(tidytext)
+
 ```
 
 # Approval rating
@@ -162,7 +171,7 @@ rating_comparison %>%
   labs(title = "Approval rating onder 'niet blanken'\nmaakt een vrije val sinds Trump")
 ```
 
-```{r plot-etnicities-2, warning=FALSE, message=FALSE, fig.width=5.9, fig.height=4.9}
+```{r plot-etnicities-2, fig.width=5.9, fig.height=4.9}
 # Three different etnicities during Trump
 rating_comparison %>%
   filter(type %in% c("Race.W", "Race.B", "Race.H") &
@@ -181,4 +190,957 @@ rating_comparison %>%
   labs(title = "Approval rating onder 'niet blanken' maakt\neen vrije val sinds Trump",
        subtitle = "Uitgesplitst op etniciteit.",
        x = "")
+```
+
+```{r plot-education, fig.width=5.9, fig.height=4.9}
+# Three different etnicities during Trump
+rating_comparison %>%
+  filter(type %in% c("Education.HS", "Education.SC", "Education.CG", "Education.PG") &
+           endDate > "2016-01-25") %>%
+  ggplot(aes(x = endDate, y = rating, colour = type)) +
+  geom_line(size = 0.8) +
+  scale_colour_colorblind(labels = c("College Graduate",
+                                     "High School or less",
+                                     "Post Graduate",
+                                     "Some College"),
+                           name = "Education") +
+  scale_x_date(date_breaks = "1 years", date_labels = "%Y") +
+  theme_minimal() +
+  labs(title = "Approval rating gefilterd op educatie",
+       x = "")
+```
+
+# Economie
+
+1. Daling Werkeloosheid
+2. Groei openstaande vacatures
+3. Flucturerende banangroei
+4. Stijgende import uit China 
+
+## Daling werkeloosheid
+
+* Bron: [Bureau of labour statistics](https://data.bls.gov/timeseries/LNS14000000). *Unemployment Rate | 16 years and over*.
+
+```{r prepare-data, fig.width=5.1, fig.height=4.3, fig.align='center'}
+# Labour statistis data page
+url_werkeloosheid <- "https://data.bls.gov/timeseries/LNS14000000"
+# Scrape html data with revest
+unemployment_rate <- url_werkeloosheid %>%
+  read_html() %>%
+  html_nodes(xpath = "/html/body/div[5]/div[4]/div/table[2]") %>%
+  html_table()
+# Tidy data frame
+unemployment_rate <- as.data.frame(unemployment_rate) %>%
+  as.tbl() %>%
+  gather(key = month, value = rate, 2:13) %>%
+  filter(Year %in% c(2010:2017)) %>%
+  arrange(desc(Year)) %>%
+  mutate(president = ifelse(Year == 2017, "Trump", "Obama"),
+         month = match(month, month.abb), # Create date strings that can be converted to date class
+         month = paste(Year, month, sep = "-"),
+         month = paste(month, "-1", sep = ""),
+         month = ymd(month)) %>% # Converts to date clas with lubridate
+  select(president, month, rate)
+# Write csv
+# write_csv(unemployment_rate, "unemployment_rate.csv")
+# datatable(head(unemployment_rate, n = nrow(unemployment_rate)), options = list(pageLength = 5))
+
+# Plot
+plot_unemployment_rate <- unemployment_rate %>%
+  ggplot(aes(x = month, y = rate, by = 1)) +
+  geom_line(aes(colour = president),
+            size = 1,
+            na.rm = T) +
+  geom_vline(xintercept = as.Date("2017-01-01"), colour = "#838B8B", linetype = "dashed") +
+  scale_colour_manual(values = c("#1F78B4", "#E31A1C")) +
+  theme_minimal() +
+  annotate(geom = "text", x = as.Date("2014-07-01"), hjust = 0, y = 8.5, label = "Inauguratie Trump", colour = "#838B8B") +
+  labs(title = "Onder Obama 2010 begint dalende\ntrend werkeloosheidspercentage",
+       y  = "Percentage (%)",
+       x = "")
+
+plot_unemployment_rate
+
+```
+
+## Groei openstaande vacatures
+
+* Bron: [Bureau of labour statistics](https://data.bls.gov/timeseries/JTS00000000JOR). *Job openings, rate | non-farm.*
+
+```{r, fig.width=5.1, fig.height=4.3, fig.align='center'}
+# Bureau of labour statistics url
+url_vacatures <- "https://data.bls.gov/timeseries/JTS00000000JOR"
+# Scraping table
+job_openings <- url_vacatures %>%
+  read_html() %>%
+  html_nodes(xpath = "/html/body/div[5]/div[4]/div/table[2]") %>%
+  html_table(fill = TRUE)
+
+job_openings <- as.tibble(as.data.frame(job_openings)) %>%
+  select(-14) %>% # Remove last weird redundant column
+  gather(key = month, value = rate, 2:13) %>% # Transpose
+  filter(Year %in% c(2009:2017)) %>% 
+  arrange(desc(Year)) %>%
+  mutate(president = ifelse(Year == 2017, "Trump", "Obama"),
+         rate = gsub("\\(P\\)", "", rate),
+         rate = as.numeric(rate),
+         month = match(month, month.abb), # Create date strings that can be converted to date class
+         month = paste(Year, month, sep = "-"),
+         month = paste(month, "-1", sep = ""),
+         month = ymd(month)) %>%
+  select(president, month, rate)
+
+# Plot
+plot_job_openings <- job_openings %>%
+  ggplot(aes(x = month, y = rate, by = 1)) +
+  geom_line(aes(colour = president),
+            size = 1,
+            na.rm = T) +
+  scale_colour_manual(values = c("#1F78B4", "#E31A1C")) +
+  theme_minimal() +
+  labs(title = "Klimmende trend % openstaande\nvacatures al vanaf begin Obama",
+       y  = "Percentage (%)",
+       x = "")
+
+plot_job_openings
+```
+
+## Flucturerende banangroei
+
+* Bron: [Bureau of Labour Statistics](https://data.bls.gov/timeseries/CES0000000001?output_view=net_1mth). *1 Month Net Change | Employment Statistics survey (National) | All employees, thousands, total nonfarm, seasonally adjusted*.
+
+```{r, fig.width=5.1, fig.height=4.3, fig.align='center'}
+# url 
+url_banengroei <- "https://data.bls.gov/timeseries/CES0000000001?output_view=net_1mth"
+# Scrape data
+job_growth <- url_banengroei %>%
+  read_html() %>%
+  html_nodes(xpath = "/html/body/div[5]/div[4]/div/table[2]") %>%
+  html_table(fill = T)
+# Convert into usable data.frame and remove last row which contains no data 
+job_growth <- as.data.frame(job_growth)
+job_growth <- job_growth[-12,]
+# Create tidy dataframe
+job_growth <- job_growth %>%
+  select(-14) %>% # Remove last weird redundant column
+  gather(key = month, value = employees, 2:13) %>% # Transpose
+  filter(Year %in% c(2013:2017)) %>% 
+  arrange(desc(Year)) %>%
+  mutate(president = ifelse(Year == 2017, "Trump", "Obama"),
+         employees = gsub("\\(P\\)", "", employees),
+         employees = as.numeric(employees),
+         month = match(month, month.abb), # Create date strings that can be converted to date class
+         month = paste(Year, month, sep = "-"),
+         month = paste(month, "-1", sep = ""),
+         month = ymd(month)) %>%
+  select(president, month, employees)
+
+# Write csv
+# write_csv(job_growth, "banengroei.csv")
+# datatable(head(job_growth, n = nrow(job_growth)), options = list(pageLength = 5))
+
+# Plot
+plot_job_growth <- job_growth %>%
+  ggplot(aes(x = month, y = employees)) +
+  geom_line(aes(colour = president),
+            size = 1,
+            na.rm = T) +
+  scale_colour_manual(values = c("#1F78B4", "#E31A1C")) +
+  theme_minimal() +
+  labs(title = "Groei in banen fluctueerd al sinds 2011\nrond de 200.000 banen",
+       subtitle = "Verandering in aantal niet-boeren medewerkers x1000.", 
+       y = "werknemers x1000",
+       x = "")
+
+plot_job_growth
+```
+
+## Stijgende import uit China
+
+* Bron: [United States Census Bureau](https://www.census.gov/foreign-trade/balance/c5700.html)
+
+```{r, fig.align='center'}
+# URL of census webpage
+url_china <- "https://www.census.gov/foreign-trade/balance/c5700.html"
+# Scrape all tables from CENSUS webpage
+china_tbls_scraped <- url_china %>%
+  read_html() %>%
+  html_nodes("table") %>%
+  html_table()
+# Create one dataset from 33 tables 
+china_tbl <- as.tibble(do.call(rbind, china_tbls_scraped))
+
+# Trim redundant space in month column
+china_tbl$Month <- str_trim(clean(china_tbl$Month))
+# Delete Total rows and split Month column
+china_tbl <-  china_tbl %>% filter(!grepl("TOTAL", Month)) %>%
+  separate(Month, into = c("Month", "Year"), sep = " ")
+# Create new Month column with class 'Date' for better computing
+china_tbl <- china_tbl %>% 
+  mutate(Month = match(Month, month.name),
+         Month = paste(Year, Month, sep = "-"),
+         Month = paste(Month, "-1", sep = ""),
+         Month = ymd(Month)) %>%
+  select(-2)
+# Clean value columns from seperators and decimals now value is *billion dollars (miljard)
+china_tbl$Exports <- gsub(",.*", "", china_tbl$Exports)
+china_tbl$Imports <- gsub(",.*", "", china_tbl$Imports)
+china_tbl$Balance <- gsub(",.*", "", china_tbl$Balance)
+# Convert to numeric values
+china_tbl <- china_tbl %>% mutate(Exports = as.double(Exports),
+                     Imports = as.double(Imports),
+                     Balance = as.double(Balance))
+# Cerate tidy dataset 
+china_tbl <- china_tbl %>% gather(key = Type, value = bln_dollars, 2:4)
+
+# Plot1
+plot_china_2000 <- china_tbl %>%
+  filter(Type == "Imports",
+         Month > "1999-12-01") %>%
+  group_by(Month, "year") %>%
+  ggplot() +
+  geom_area(aes(x = Month, y = bln_dollars, group = 1),
+            size = 1,
+            fill = "#E53E22") +
+  scale_x_date(date_breaks = "1 years", date_labels = "%y") +
+  theme_minimal() +
+  theme(plot.caption = element_text(colour = "#838B8B")) +
+  labs(title = "Trump's Chinese draak",
+       subtitle = "Oktober onder Trump kent de hoogste Chinese importcijfers\nin de geschiedenis van de VS. *Niet seizoensgecorrigeerd.",
+       y = "miljard dollar",
+       x = "",
+       caption = "*Niet seizoensgecorrigeerd.\nBron: United States Census Bureau")
+
+plot_china_2000
+
+# Plot2
+plot_china_2017 <- china_tbl %>% 
+  filter(Type == "Imports" &
+         Month > "2016-12-01") %>%
+  ggplot() +
+  geom_area(aes(x = Month, y = bln_dollars, group = 1),
+            fill = "#E53E22") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  theme_minimal() +
+  theme(plot.caption = element_text(colour = "#838B8B")) +
+  labs(title = "Chinese import onder Trump",
+       subtitle = "In zijn eerste periode als president slaagt Trump er nog niet in\nde Chinese draak te temmen.",
+       y = "miljard dollars",
+       x = "",
+       caption = "*Niet seizoensgecorrigeerd.\nBron: United States Census Bureau")
+
+plot_china_2017
+
+# Seasonally adjusted data from: https://www.census.gov/foreign-trade/statistics/country/index.html
+# Download excel file from census webpage
+
+# download.file("https://www.census.gov/foreign-trade/statistics/country/ctyseasonal.xlsx", destfile = "census_data.xlsx")
+
+# Import file
+xlsx_file <- read.xlsx("/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/census_data.xlsx", sheetName = "ctyseasonal") %>%
+  as.tbl()
+# Filter on China and per month
+china_season_adj <- xlsx_file %>%
+  filter(cty_desc == "China") %>%
+  select(1, 3, c(IJAN:IDEC))
+# Tidy data and create proper date column
+china_season_adj <- china_season_adj %>%
+  gather(key = month, value = import_dollars, IJAN:IDEC) %>%
+  mutate(import_dollars = import_dollars/1000000000,
+         month = gsub("I", "", month),
+         month = str_to_title(tolower(month)), # first to lowercase then to proper case or else `month.abb` will not work.
+         month = match(month, month.abb),
+         month = paste(year, month, sep = "-"),
+         month = paste(month, "-1", sep = ""),
+         month = ymd(month)) %>%
+  rename(country = cty_desc) %>%
+  add_column(source = "https://www.census.gov/foreign-trade/statistics/country/index.html") %>%
+  select(-1)
+
+# Plot 3
+china_season_adj %>%
+  ggplot() +
+  geom_area(aes(x = month, y = import_dollars, group = 1),
+            fill = "#E53E22") +
+  theme_minimal() +
+  theme(plot.caption = element_text(colour = "#838B8B")) +
+  labs(title = "Chinese import onder Trump",
+       subtitle = "In zijn eerste periode als president slaagt Trump er nog niet in\nde Chinese draak te temmen.",
+       y = "billion dollars",
+       x = "",
+       caption = "*Seizoensgecorrigeerd.\nBron: United States Census Bureau")
+```
+
+# Inlossen van campagne beloftes
+
+Data van [Washington Post Trump Tracker](https://www.washingtonpost.com/graphics/politics/trump-promise-tracker/). 
+Op 05-01-2017 pagina gescraped met 'guess' functie in Outwit hub. Dan: export selection.
+
+> On Oct. 22, Trump issued what he called his “Contract with the American Voter.” This was a specific plan of action that would guide his administration, starting from the first day, and listed 60 promises. He even signed it with his distinctive signature. During Trump’s term, The Washington Post Fact Checker will track the progress of each pledge – and whether Trump has achieved his stated goal. Sign up for the weekly Fact Checker newsletter here.
+
+```{r campaign-promises-transform-1}
+# Import scraped data
+outwit_df <- read.csv("/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/trump_campaign_promise_tracker_Washington_Post.csv")
+
+# Summarise satus and count
+summary_count <- outwit_df %>%
+  select(c(2, 4, 5)) %>%
+  as.tbl() %>%
+  count(Status)
+# Created vector variable for status order
+order <- c("Promise broken","Stuck", "Compromise", "Promise kept", "Launched", "Not yet rated")
+# Order Status on `order` values
+summary_count <- summary_count[match(order, summary_count$Status),]
+# Write csv
+# write.csv(summary_count, "trump_campagne_beloftes.csv")
+
+datatable(head(summary_count, n = nrow(summary_count)), options = list(pageLength = 5))
+```
+
+Er is ook een dataset met de details per beloftes.
+
+```{r campaign-promises-transform-2, warning=FALSE, message=FALSE}
+# Create dataframe for details per belofte
+details_per_belofte <- outwit_df %>%
+  select(c(5, 2, 4)) %>%
+  rename(Theme = Column.3,
+         Promise = Column.5)
+# Write csv
+# write.csv(details_per_belofte, "details_per_belofte.csv")  
+```
+
+## Meta data
+
+```{r campaign-promises-metadata, warning=FALSE, message=FALSE}
+meta_data <- tibble(status = c("Promise broken", "Launched", "Stuck", "Compromise", "Not yet rated"), betekenis = c("Trump failed to achieve his goal through inaction, congressional or legal obstacles or a reversal of policy", "Trump has taken action, such as proposing a bill or issuing an order, toward achieving this promise", "Trump has taken action, but Congress or the courts have put up roadblocks", "Trump did not achieve his goal, but accepted a deal that partially achieved his promise", "No action has yet been taken"))
+
+# Write csv
+# write.csv(meta_data, "meta_data_campagne_beloftes.csv")
+
+datatable(head(meta_data, n = nrow(meta_data)), options = list(pageLength = 5))
+```
+
+## Status van beloftes
+
+```{r campaign-promises-plots, warning=FALSE, message=FALSE, fig.width=6.61, fig.height=3.5}
+# Add column with total 
+summary_count <- add_column(summary_count, total = 60)
+# Create colour variable for plots
+colours <- c("#B71C1C", "#F57F17", "#2196F3", "#0D47A1", "#4CAF50", "#9E9E9E")
+# Simple bar Chart
+bar_chart <- summary_count %>%
+  ggplot(aes(x = Status, y = n, fill = colours)) +
+  geom_col() +
+  coord_flip() +
+  geom_text(aes(label = n), 
+            hjust = 1.5,
+            colour = "white",
+            fontface = "bold",
+            size = 3) +
+  scale_x_discrete(limits = rev(order)) +
+  scale_fill_identity() +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        legend.position = "null") +
+  labs(title = "Status campagne beloftes",
+       x = "",
+       y = "Totaal van 60 beloftes")
+
+# Bar chart with totals as grey bars
+bar_chart_with_total <- summary_count %>%
+  ggplot(aes(x = Status, y = n, fill = colours)) +
+  geom_col(aes(y = total), fill = "grey90") +
+  geom_col() +
+  coord_flip() +
+  geom_text(aes(label = n), 
+            hjust = 1.5,
+            colour = "white",
+            fontface = "bold",
+            size = 3) +
+  scale_x_discrete(limits = rev(order)) +
+  scale_fill_identity() +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        legend.position = "null") +
+  labs(title = "Status campagne beloftes",
+       x = "",
+       y = "Totaal van 60 beloftes")
+
+# All two plots in one grid
+plot_grid(bar_chart, bar_chart_with_total, ncol = 1)
+```
+
+# Vertrouwen van de wereld in President US
+
+Cijfers van [pew research center](http://www.pewglobal.org/2017/06/26/u-s-image-suffers-as-publics-around-world-question-trumps-leadership/). Geïmporteerd vanaf [google sheets](https://docs.google.com/spreadsheets/d/15YgKHeXNY3eTRODpQib71S85XlOgu8SnCBfWIyeM2j4/edit#gid=1168275672). Originele data in [pdf report](http://assets.pewresearch.org/wp-content/uploads/sites/2/2017/06/26170737/PG_2017.06.26_US-Image-Report_Appendix-A-Detailed-Tables.pdf).
+
+```{r load-data, warning=FALSE, message=FALSE}
+meta <- read.csv("/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/wereld_vertrouwen/datasets/worlds-view-of-America - Meta.csv")
+confidence_pres <- read.csv("/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/wereld_vertrouwen/datasets/worlds-view-of-America-sheet1.csv")
+confidence_pres <- read.csv("/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/wereld_vertrouwen/datasets/worlds-view-of-America-sheet1.csv")
+```
+
+Grote dataset in de code
+
+```{r tidy, warning=FALSE, message=FALSE}
+# Creating clean tibble dataframe
+confidence_pres_tbl <- confidence_pres %>%
+  gather(key = "year1", value = "conf", 2:16) %>%
+  mutate(year = gsub("X", "", year1),
+         conf_perc =  as.numeric(conf),
+         country = as.character(X),
+         year = as.numeric(year)) %>%
+  select(c(6, 4, 5)) %>%
+  arrange(desc(year)) %>%
+  as.tbl()
+```
+
+## Dataset gefilterd
+Gefilterd op eerste jaar Obama (2009) en Trump (2017).
+
+```{r subset, warning=FALSE, message=FALSE}
+# Data frame containg first year Obama and first year Trump
+first_year <- confidence_pres_tbl %>%
+  filter(year == 2009 |
+         year == 2017)
+ # Filter out countries in 2009 and 2017 that have NA values in 2009.
+first_year <- first_year %>% 
+  group_by(country) %>% 
+  filter(!any(is.na(conf_perc)))
+
+first_year <- first_year %>%
+  mutate(president = ifelse(year == 2017, "Trump", "Obama")) %>%
+  select(4, everything())
+
+first_year <- first_year %>%
+  select(-year) %>%
+  spread(key = president, value = conf_perc)
+  
+# write.csv(first_year, "/Users/Thomas/Work/Volkskrant/Langetermijn_dossiers/1_jaar_Trump/wereld_vertrouwen/datasets/first_year_obama_trump.csv")
+
+datatable(head(first_year, n = nrow(first_year)), options = list(pageLength = 5))
+```
+
+## Grafiek
+
+```{r visualise, fig.height=5.5, fig.width=4}
+first_year %>%
+  ggplot() +
+  geom_segment(aes(x = Trump,
+                   y = reorder(country, -Trump),
+                   xend = Obama,
+                   yend = country),
+               colour = "#AFACAC",
+               size = 2) +
+  geom_point(aes(x = Trump, 
+                 y = reorder(country, -Trump)),
+             colour = "#B42030",
+             size = 3) +
+  geom_point(aes(x = Obama, 
+                 y = country),
+             colour = "#3C3970",
+             size = 3) +
+  theme_minimal() +
+  scale_colour_manual(values = c("blue", "red")) +
+  labs(title = "Trump geniet substantieel minder\nvertrouwen dan Obama",
+       subtitle = "Alleen in Rusland is Trump populairder.\nIn Israel is er geen verschil",
+       x = "Vertrouwen in president %",
+       y = "")
+
+```
+
+# Trump's tweetgewoonten
+
+![](http://i.cdn.cnn.com/cnn/interactive/2017/politics/trump-tweets/media/trump-tweets-hdr-02.jpg)
+
+Een eerste jaar Donald J. Trump in het witte huis. Misschien wel mede mogelijk gemaakt door zijn karakteristieke uitlatingen op Twitter. In de aanloop van de verkiezingen zijn de tweets van de huidige president van de V.S. een krachtig middel gebleken. En nog steeds bereikt hij zijn miljoenen kiezers zonder de traditionele media nodig te hebben. Trump zelf verschijnt dan ook relatief weinig voor de camera, in kranten of andere news sites. 
+
+Om beter vat te krijgen op hoe Trump zijn favoriete medium inzet nemen we zijn tweets onder de loep. **Doormiddel van een tekstanalyse hopen we een aantal vragen te beantwoorden**. 
+
+Vragen zoals:
+
+* Welke Tweets zijn daadwerkelijk van Trump afkomstig?
+* Hoeveel tweets stuurt Trump gemiddeld per dag?
+* Wanneer op de dag tweet hij met name? s'Avonds, s'ochtends of s'middags?
+* Welke tweets worden het meest geretweet en geliked?
+* Welke woorden gebruikt Trump het meest?
+
+## Data verkrijgen
+
+De geïmporteerde dataset is van [Trump Twitter Archive](http://www.trumptwitterarchive.com/archive). Dit is een betere bron dan de Twitter API welke niet altijd alle tweets geeft. Bovendien slaat de Trump Twitter Archive ook de meeste verwijderde tweets op. 
+
+Als we alle tweets filteren op diegene waarvan wij denken dat ze afkomstig zijn van Trump bestaat de dataset uit bijna **7000** tweets vanaf 05-02-2013, vijf en half jaar geleden.  
+
+Trump Twitter Archive word elk uur geupdate. Als wij de code in onder de R-script op deze pagina 'runnen' dan worden alle data tabellen en grafieken als vanzelf geupdate. De twitter dataset bevat de volgende *zeven* variabelen:
+
+* `text`: tekst van de tweets.
+* `created_at`: datum en tijd van tweet in "GMT"
+* `source`: op welk apparaat of met welke software de tweet is gepost
+* `retweet_count`: aantal 'retweets'
+* `favourite_count`: aantal 'vind-ik-leuks'
+* `is_retweet`: of de tweet een retweet is of niet
+* `id_str`: uniek karakter van tweet 
+
+```{r acquire, results='hide'}
+# Loading the used libraries
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+library(DT)
+library(scales)
+library(hrbrthemes)
+library(cowplot)
+library(rvest)
+library(ggthemes)
+
+# url Trump Twitter Archive
+url <- 'http://www.trumptwitterarchive.com/data/realdonaldtrump/%s.json'
+# Retrieve all trump's tweets and create dataset with converted `created_at` character dates 
+original_df <- map(2009:2017, ~sprintf(url, .x)) %>%
+  map_df(jsonlite::fromJSON, simplifyDataFrame = TRUE) %>%
+  mutate(created_at = parse_date_time(created_at, "a b! d! H!:M!:S! z!* Y!")) %>%
+  tbl_df()
+# If above doesn't work download data on website then: 
+# original_df <- read.csv("filename.csv", quote = "", comment = "")
+```
+
+## Klaarmaken voor analyse: Wanneer zijn de tweets afkomstig van Trump zelf?
+
+Het uiteindelijke doel is om een dataset te maken met unieke Trump tweets. Omdat data scientist David Robinson in zijn analyse, [Text analysis of Trump's tweets confirms he writes only the (angrier) Android half](http://varianceexplained.org/r/trump-tweets/), er vrijwel zeker van is dat Trump destijds een Android toestel gebruikte [passen anderen machine learning toe](http://didtrumptweetit.com/).
+
+Robinson concludeert een jaar later in een follow-up: [Trump's Android and iPhone tweets, one year later](http://varianceexplained.org/r/trump-followup/) dat Trump vrijwel altijd tweet:
+
+* zonder links, hashtags of afbeeldingen
+* afkomstig van een Android toestel, tot hij een iPhone kocht, hoogst waarschijnlijk rond 25-03-2017.
+
+Wij zullen dat in deze analyse overnemen door de computer op tweets te laten filteren waarvan de `text` hashtags ("#") en/of links ("http") bevatten. Afbeeldingen worden tegenwoordig niet meer in de text van de tweets meegenomen. Ook nemen we de tweets die vanaf andere toestellen afkomstig zijn niet mee.
+
+Het spreekt voor zich dat we alleen originele tweets meenemen dus geen retweets. Bovendien zullen gelijk al filteren op de tweets die vanaf zijn inauguratie zijn verstuurd (20-101-2017).
+
+```{r prepare, results='hide'}
+# Subset data on high probability that Trump himself is actually tweeting and add
+all_trump_tweets <- original_df %>%
+  rename(retweets = retweet_count,
+         favorites = favorite_count) %>%
+  filter(is_retweet != "true",
+         source == "Twitter for iPhone" |
+         source == "Twitter for Android",
+         !grepl("http|#|RT|@realdonaldtrump|@realDonaldTrump", text)) %>%
+  rowid_to_column("ID") %>%
+  select(ID, text, created_at, retweets, favorites, source)
+# Filter out all iPhone tweets before 25-03-2017
+all_trump_tweets <- all_trump_tweets %>%
+  filter((created_at < "2017-03-15" & source != "Twitter for iPhone") | created_at >= "2017-03-15") %>%
+  arrange(desc(created_at))
+# Get rid of emoji characters R doesn't like them
+all_trump_tweets$text <- gsub("[^\x01-\x7F]", "", all_trump_tweets$text)
+# Remove redundant "amp"
+all_trump_tweets$text <- gsub("amp", "", all_trump_tweets$text)
+# Remove numbers
+all_trump_tweets$text <- gsub("[0-9]+", "", all_trump_tweets$text)
+# Convert GMT time to Eastern US time want Trump tweet daarvanuit het meest en originele tijden zijn GMT (Greenwich Time)
+all_trump_tweets$created_at <- with_tz(all_trump_tweets$created_at, tzone = "US/Eastern")
+# Create dataset since inauguration
+president_tweets <- all_trump_tweets %>%
+  filter(created_at > "2017-01-20")
+# Create dataset since inauguration
+candidate_tweets <- all_trump_tweets %>%
+  filter(created_at > "2015-06-16")
+# Html widget interactive table in rmarkdown report with only the four useful columns
+datatable(head(president_tweets[,c(2,5,6,1,4)], n = nrow(president_tweets)), options = list(pageLength = 5))
+```
+
+## Data analyseren
+
+```{r tweet-analysis-top-10}
+# Top 10 retweets
+most_rt <- president_tweets %>%
+  arrange(desc(retweets))
+# Html widget interactive table in rmarkdown report
+datatable(head(most_rt[,c(2, 4, 5, 3)], n = nrow(most_rt)), options = list(pageLength = 5)) 
+```
+
+### Text analyse per woord
+Welke woorden gebruikt Trump het meest in zijn tweets?
+
+#### Vanaf Inauguratie
+
+```{r tweet-analysis-per-word}
+# Create new dataset `tweets_fy_words` (tweets first year words)
+tweets_words <- president_tweets %>%
+  unnest(text) %>% # Unnest gets rid of lists in text column
+  unnest_tokens(word, text)
+# Remove stop words and numbers, which aren't useful
+tweets_words <- tweets_words %>%
+  anti_join(stop_words) # Because in text is 'space' coded as "amp&"
+
+# Sort on most used words
+most_used_words <- tweets_words %>% 
+  count(word, sort = TRUE) %>%
+  mutate(times_used = n,
+         word = reorder(word, times_used)) %>%
+  select(word, times_used)
+# Convert type word column to charcter for better handeling
+most_used_words$word <- as.character(most_used_words$word)
+# Sort on times_used
+most_used_words <- most_used_words %>%
+  arrange(desc(times_used))
+# Plot in bar chart
+plot_most_used_words <- most_used_words %>%
+  top_n(20) %>%
+  ggplot(aes(x = reorder(word, times_used), times_used)) +
+    geom_segment(aes(x = reorder(word, times_used), xend = word, y = 0,yend = times_used),
+               colour = "#737373") +
+  geom_point(colour = "#03A9F4",
+             size = 3) +
+  coord_flip() +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+       subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
+       x = NULL, 
+       y = "Aantal keer gebruikt")
+
+# Plot
+plot_most_used_words
+# Html widget interactive table in rmarkdown report
+datatable(head(most_used_words, n = nrow(most_used_words)), options = list(pageLength = 5)) 
+```
+
+### Welke woordparen gebruikt Trump het vaakst?
+
+```{r tweet-analysis-word-pairs}
+candidate_bigrams <- candidate_tweets %>%
+  unnest_tokens(bigram , text, token = "ngrams", n = 2) %>%
+  separate(bigram, c("word1", "word2"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word) %>%
+  unite(bigram, word1, word2, sep = " ")
+
+president_bigrams <- candidate_bigrams %>%
+  filter(created_at > "2017-01-20") %>%
+  group_by(bigram) %>%
+  mutate(count = n())
+
+head(president_bigrams %>%
+  mutate(count = n()) %>%
+  distinct(bigram, count) %>%
+    arrange(desc(count)),20) %>%
+  ggplot(aes(x = reorder(bigram, count), count)) +
+    geom_segment(aes(x = reorder(bigram, count), xend = bigram, y = 0,yend = count),
+               colour = "#737373") +
+  geom_point(colour = "#03A9F4",
+             size = 3) +
+  coord_flip() +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        plot.background = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "De 20 meest gebruikte woorden in Trump's tweets",
+       subtitle = "Vanaf zijn inauguratie op 20-01-2017.",
+       x = NULL, 
+       y = "Aantal keer gebruikt")
+  
+```
+
+### Wanneer op de dag verstuurt Trump zijn tweets?
+
+* Trump vanaf toen hij president was
+* Trump vanaf dat hij zich officieel kandidaat stelde
+* Trump van vóór zijn kandidaatstelling
+
+```{r tweet-analysis-when-1, fig.height=5}
+# Create dataframe with weekdays
+weekday_tweets <- president_tweets %>%
+  mutate(hour_of_day = hour(created_at),
+         weekday = strftime(created_at, "%a")) %>%
+  group_by(weekday, hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Order weekdays on Monday first
+weekday_tweets$weekday <- factor(weekday_tweets$weekday, levels = c("Mon", 
+    "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+# Plot distributions
+weekday_tweets %>%
+  ggplot(aes(hour_of_day, count)) +
+  geom_col(fill = "#03A9F4") +
+  scale_x_continuous(breaks = seq(0,23,4)) +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "Een week in tweets van president Trump",
+       subtitle = "Tweets per uur op de dag sinds zijn inauguratie.",
+       x = "Uur van de dag",
+       y = "Aantal tweets") +
+  facet_wrap(~weekday) 
+
+```
+
+
+```{r, tweet-analysis-when-2, fig.height=11}
+# -------------------President
+
+# Create datframe that groups hours a day and the nr of tweets during his presidency and add percentage column
+tweet_time_president <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at > "2017-01-20") %>% # Consists of 1.235 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plot a bar chart of a day 
+plot_tweet_time_president <- tweet_time_president %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_minimal() +
+  scale_y_continuous(labels = percent_format(),
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "President Trump",
+       subtitle = "Bestaat uit 1.235 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets") 
+
+# -------------------Candidate
+
+# Same calculation than `tweet_time_president` but filterd before inauguration and after announcing official canidatcy
+tweet_time_candidate <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at < "2017-01-20" &            
+           created_at > "2015-06-16") %>% # Consists of 2.493 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plotting same barchart
+plot_tweet_time_candidate <- tweet_time_candidate %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_minimal() +
+  scale_y_continuous(labels = percent_format(), 
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "Kandidaat Trump",
+       subtitle = "Bestaat uit 2.493 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets")  
+
+# --------------------Before Politics
+
+# Same calculation but filterd before announcing official canidatcy
+tweet_time_before_politics <- all_trump_tweets %>%
+  mutate(hour_of_day = hour(created_at)) %>%
+  filter(created_at < "2015-06-16") %>% # Consists of 3.141 tweets
+  group_by(hour_of_day) %>%
+  summarize(count = n()) %>%
+  mutate(percentage = count / sum(count))
+# Plotting same barchart
+plot_tweet_time_before_politics <- tweet_time_before_politics %>%
+  ggplot(aes(hour_of_day, percentage)) +
+  geom_col(fill = "#03A9F4") +
+  theme_minimal() +
+  scale_y_continuous(labels = percent_format(),
+                     limits=c(0,0.2)) +
+  scale_x_continuous(breaks = seq(0,23,2)) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        plot.title = element_text(face = "bold",
+                                  size = 18)) +
+  labs(title = "Trump vóór officiële politieke carriére ",
+       subtitle = "Bestaat uit 3.141 tweets.",
+       x = "Uur van de dag",
+       y = "% van tweets") 
+
+# Place al three plot's in grid
+plot_grid(plot_tweet_time_president, plot_tweet_time_candidate, plot_tweet_time_before_politics, ncol = 1, align = 'v')
+```
+
+### Wanneer heeft Trump welke woordparen gebruikt
+
+```{r tweet-analysis-bubble-1, fig.height = 2.12}
+# Bubble time line
+bubble_plot_1 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         grepl("fake news|fake media", bigram, ignore.case = TRUE)) %>%
+  ggplot(aes(x = created_at, y = 0)) +
+  geom_point(aes(size = retweets),
+             alpha = 0.1,
+             colour = "#B71C1C") +
+  scale_size(range = c(0,15)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump 'Fake News/Media' in zijn tweets gebruikt",
+       x = "",
+       y = "")
+
+bubble_plot_1
+```
+
+
+```{r tweet-analysis-barcode-1, fig.height = 3}
+# Barcode with fixed size
+barcode_1 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "tax cuts")) %>%
+  ggplot(aes(x = created_at, y = 0, colour = bigram)) +
+  geom_point(shape = 124,
+             size = 15,
+             alpha = 0.5) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  theme_minimal() +
+  theme(plot.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump 'Fake News' en 'Tax Cuts' in zijn tweets gebruikte",
+       x = "",
+       y = "")
+
+barcode_1
+```
+
+
+```{r tweet-analysis-barcode-2, fig.width=5.3, fig.height=9.3}
+plot_colours3 <- c("#b7002e", "#005cb7", "#baa400")
+
+# Barcode where size is according number of retweets
+barcode_2 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts")) %>%
+  ggplot(aes(x = created_at, y = 0, colour = bigram, size = retweets)) +
+  geom_point(shape = 95,
+             alpha = 0.4) +
+  scale_size(range = c(1, 35)) +
+  scale_x_datetime(date_labels = "%b",
+                   date_breaks = "1 month") +
+  scale_colour_manual(values = plot_colours3) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(vjust = -2.5),
+        panel.grid = element_blank(),
+        panel.grid.major.y = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte\nwoordparen in zijn tweets gebruikt",
+       subtitle = "Elk streepje is een tweet. De groter het streepje\ndes te meer retweets.",
+       x = "",
+       y = "")
+
+barcode_2
+```
+
+```{r tweet-analysis-barcode-3, fig.height=4.2}
+plot_colours4 <- c("#ba001f", "#001fb7", "#b79900", "#00b799")
+
+# Barcode where size is according to number of retweets and multiple words on their own line
+barcode_3 <- candidate_bigrams %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts",
+                       "failing nytimes")) %>%
+  ggplot(aes(x = created_at, y = bigram, colour = bigram, size = retweets)) +
+  geom_point(shape = 124,
+             alpha = 0.6) +
+  scale_size(range = c(1, 10)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  scale_colour_manual(values = plot_colours4) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte woordparen in zijn tweets gebruikt",
+       subtitle = "Elk streepje is een tweet. De groter het streepje des te meer retweets.",
+       x = "",
+       y = "")
+
+barcode_3
+```
+
+
+```{r tweet-analysis-bubble-2, fig.height=4.2}
+plot_colours4 <- c("#001fb7",  "#ba001f", "#b79900", "#00b799")
+
+# Bubble plot where size is according to number of retweets and multiple words on their own line
+candidate_bigrams %>%
+  mutate(bigram = as.factor(bigram)) %>%
+  filter(created_at > "2017-01-01",
+         bigram %in% c("fake news",
+                       "north korea",
+                       "tax cuts",
+                       "failing nytimes")) %>%
+  ggplot(aes(x = created_at, y = bigram, fill = bigram, size = retweets)) +
+  geom_point(shape = 21,
+             alpha = 0.3,
+             stroke = F) +
+  scale_size(range = c(1, 12)) +
+  scale_x_datetime(date_labels = "%b", date_breaks = "1 month") +
+  scale_fill_manual(values = plot_colours4) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        plot.background = element_blank(),
+        axis.text.x = element_text(hjust = -0.5),
+        panel.grid = element_blank(),
+        panel.grid.major.x = element_line(colour = "#BDBDBD",
+                                          linetype = "dotted")) +
+  labs(title = "Wanneer Trump zijn meest gebruikte woordparen in zijn tweets gebruikt",
+       subtitle = "Elke bubbel is een tweet. De groter de bubbel des te meer retweets.",
+       x = "",
+       y = "")
+```
+
+# Een fanatieke golfer
+
+![](https://i.imgur.com/LHZqF7N.png)
+
+* Bron: [trumpgolfcount.com](http://trumpgolfcount.com/).
+
+## Scraped table
+
+```{r}
+url <- "http://trumpgolfcount.com/displayoutings"
+# Scrape html table
+golf_df <- url %>%
+  read_html() %>%
+  html_nodes(css = "#table_id") %>%
+  html_table(fill = T)
+# Covert to tibble
+golf_df <- as.tibble(as.data.frame(golf_df))
+# Convert Date and numeric column  
+golf_df$Date <- mdy(golf_df$Date)
+# Html table widget
+datatable(head(golf_df, n = nrow(golf_df)), options = list(pageLength = 5)) 
 ```
