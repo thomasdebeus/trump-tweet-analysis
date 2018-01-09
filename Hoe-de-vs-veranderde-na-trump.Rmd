@@ -254,12 +254,13 @@ plot_unemployment_rate <- unemployment_rate %>%
   geom_vline(xintercept = as.Date("2017-01-01"), colour = "#838B8B", linetype = "dashed") +
   scale_colour_manual(values = c("#1F78B4", "#E31A1C")) +
   theme_minimal() +
-  annotate(geom = "text", x = as.Date("2014-07-01"), hjust = 0, y = 8.5, label = "Inauguratie Trump", colour = "#838B8B") +
+  annotate(geom = "label", x = as.Date("2014-07-01"), hjust = 0, y = 8.5, label = "Inauguratie Trump", colour = "#838B8B") +
   labs(title = "Onder Obama 2010 begint dalende\ntrend werkeloosheidspercentage",
        y  = "Percentage (%)",
        x = "")
 
 plot_unemployment_rate
+
 
 ```
 
@@ -646,7 +647,7 @@ first_year %>%
              size = 3) +
   theme_minimal() +
   scale_colour_manual(values = c("blue", "red")) +
-  labs(title = "Trump geniet substantieel minder\nvertrouwen dan Obama",
+  labs(title = "Trump geniet substantieel minder\nvertrouwen dan Obama in zijn eerste jaar",
        subtitle = "Alleen in Rusland is Trump populairder.\nIn Israel is er geen verschil",
        x = "Vertrouwen in president %",
        y = "")
